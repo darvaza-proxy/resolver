@@ -8,9 +8,8 @@ import (
 	"github.com/miekg/dns"
 )
 
-var (
-	_ Resolver = (*net.Resolver)(nil)
-)
+// A DialerFunc is a function that establishes TCP or UDP connection
+type DialerFunc func(ctx context.Context, network, address string) (net.Conn, error)
 
 // A Resolver implements the interface of net.Resolver
 type Resolver interface {
