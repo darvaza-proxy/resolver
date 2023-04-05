@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"net/netip"
 
 	"github.com/miekg/dns"
 )
@@ -55,13 +54,6 @@ func (LookupResolver) LookupIPAddr(_ context.Context,
 // LookupIP returns the IP addresses of a host
 func (LookupResolver) LookupIP(_ context.Context,
 	_, _ string) ([]net.IP, error) {
-	//
-	return nil, errNotImplemented
-}
-
-// LookupNetIP returns the IP addresses of a host
-func (LookupResolver) LookupNetIP(_ context.Context,
-	_, _ string) ([]netip.Addr, error) {
 	//
 	return nil, errNotImplemented
 }
