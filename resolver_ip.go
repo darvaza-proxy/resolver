@@ -167,7 +167,7 @@ func (r LookupResolver) lookupIPq(ctx context.Context,
 func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 	qHost string, qType uint16) ([]net.IP, error) {
 	//
-	cname, e1 := r.LookupCNAME(ctx, qHost)
+	cname, e1 := r.doLookupCNAME(ctx, qHost)
 
 	select {
 	case <-ctx.Done():

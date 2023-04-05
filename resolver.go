@@ -51,15 +51,6 @@ func (LookupResolver) LookupAddr(_ context.Context,
 	return nil, errNotImplemented
 }
 
-// LookupCNAME returns the final canonical name after following zero or
-// more CNAME records
-func (LookupResolver) LookupCNAME(_ context.Context,
-	_ string,
-) (string, error) {
-	//
-	return "", errNotImplemented
-}
-
 // LookupHost returns a slice of the host's addresses
 func (LookupResolver) LookupHost(_ context.Context,
 	_ string,
