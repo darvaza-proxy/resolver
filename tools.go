@@ -1,9 +1,12 @@
 package resolver
 
 import (
+	"errors"
 	"net"
 
+	"darvaza.org/core"
 	"github.com/miekg/dns"
+	"golang.org/x/net/idna"
 )
 
 func validateResp(server string, r *dns.Msg, err error) error {
@@ -60,4 +63,16 @@ func nameFromMsg(msg *dns.Msg, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+func sanitiseHost(host string) (string, error) {
+	if host != "" {
+		s, err := idna.Display.ToASCII(host)
+		if err != nil {
+			return "", core.Wrapf(err, "%q: invalid host", host)
+		}
+		return s, nil
+	}
+
+	return "", errors.New("empty host")
 }
