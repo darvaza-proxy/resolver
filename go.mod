@@ -1,4 +1,4 @@
-module github.com/darvaza-proxy/resolver
+module darvaza.org/resolver
 
 go 1.19
 
