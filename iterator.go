@@ -69,7 +69,7 @@ func Iterate(ctx context.Context, name string,
 	name = dns.Fqdn(name)
 	msg := newMsgFromParts(name, qtype)
 	resp, err := dns.ExchangeContext(ctx, msg, server)
-	if werr := validateResp(resp, err); werr != nil {
+	if werr := validateResp(server, resp, err); werr != nil {
 		return nil, werr
 	}
 
@@ -130,7 +130,7 @@ func hostFromRoot(ctx context.Context, h string) (string, error) {
 	}
 	askRoot = askRoot + ":53"
 	msg, err := Iterate(ctx, h, dns.TypeA, askRoot)
-	if werr := validateResp(msg, err); werr != nil {
+	if werr := validateResp(askRoot, msg, err); werr != nil {
 		return "", werr
 	}
 	ans, ok := core.SliceRandom(msg.Answer)
@@ -157,17 +157,4 @@ func pickRoot() string {
 		return x
 	}
 	return ""
-}
-
-func validateResp(r *dns.Msg, err error) error {
-	if err != nil {
-		return err
-	}
-	if r.Truncated {
-		return fmt.Errorf("dns response was truncated")
-	}
-	if r.Rcode != dns.RcodeSuccess {
-		return fmt.Errorf("dns response error: %s", dns.RcodeToString[r.Rcode])
-	}
-	return nil
 }
