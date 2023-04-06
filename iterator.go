@@ -11,6 +11,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+var (
+	_ Lookuper = (*RootLookuper)(nil)
+)
+
 var roots = map[string]string{
 	"a.root-servers.net": "198.41.0.4",
 	"b.root-servers.net": "199.9.14.201",
@@ -25,6 +29,29 @@ var roots = map[string]string{
 	"k.root-servers.net": "193.0.14.129",
 	"l.root-servers.net": "199.7.83.42",
 	"m.root-servers.net": "202.12.27.33",
+}
+
+// RootLookuper does interative lookup using the given root-server
+// as starting point
+type RootLookuper struct {
+	Start string
+}
+
+// Lookup performs an iterative lookup
+func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
+	start := r.Start
+	if start == "" {
+		start = randomRoot()
+	}
+
+	return Iterate(ctx, qName, qType, start+":53")
+}
+
+func randomRoot() string {
+	for _, k := range roots {
+		return k
+	}
+	return ""
 }
 
 // Iterate is an iterative lookup implementation
