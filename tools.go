@@ -76,3 +76,16 @@ func sanitiseHost(host string) (string, error) {
 
 	return "", errors.New("empty host")
 }
+
+// ForEachAnswer calls a function for each answer of the specified type.
+func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
+	if fn == nil || msg == nil {
+		return
+	}
+
+	for _, ans := range msg.Answer {
+		if v, ok := ans.(T); ok {
+			fn(v)
+		}
+	}
+}
