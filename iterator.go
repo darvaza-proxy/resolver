@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
@@ -41,17 +40,10 @@ type RootLookuper struct {
 func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
 	start := r.Start
 	if start == "" {
-		start = randomRoot()
+		start = pickRoot()
 	}
 
 	return Iterate(ctx, qName, qType, start+":53")
-}
-
-func randomRoot() string {
-	for _, k := range roots {
-		return k
-	}
-	return ""
 }
 
 // Iterate is an iterative lookup implementation
@@ -150,9 +142,6 @@ func newMsgFromParts(qName string, qType uint16) *dns.Msg {
 }
 
 func pickRoot() string {
-	var mu sync.RWMutex
-	mu.RLock()
-	defer mu.RUnlock()
 	for _, x := range roots {
 		return x
 	}
