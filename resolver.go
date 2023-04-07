@@ -110,10 +110,3 @@ func (LookupResolver) LookupSRV(_ context.Context,
 	//
 	return "", nil, errNotImplemented
 }
-
-// LookupTXT returns the DNS TXT records for the given domain name
-func (LookupResolver) LookupTXT(_ context.Context,
-	_ string) ([]string, error) {
-	//
-	return nil, errNotImplemented
-}
