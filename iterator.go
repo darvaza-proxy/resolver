@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
@@ -37,21 +36,39 @@ type RootLookuper struct {
 	Start string
 }
 
+// NewRootLookuper creates a RootLookuper using the indicated root, or random
+// if the argument is ""
+func NewRootLookuper(start string) (*RootLookuper, error) {
+	if start == "" {
+		root := pickRoot()
+		return &RootLookuper{Start: root}, nil
+	}
+
+	for _, addr := range roots {
+		if start == addr {
+			return &RootLookuper{Start: addr}, nil
+		}
+	}
+
+	if addr, ok := roots[start]; ok {
+		return &RootLookuper{Start: addr}, nil
+	}
+
+	err := &net.DNSError{
+		Err:  "invalid root server",
+		Name: start,
+	}
+	return nil, err
+}
+
 // Lookup performs an iterative lookup
 func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
 	start := r.Start
 	if start == "" {
-		start = randomRoot()
+		start = pickRoot()
 	}
 
 	return Iterate(ctx, qName, qType, start+":53")
-}
-
-func randomRoot() string {
-	for _, k := range roots {
-		return k
-	}
-	return ""
 }
 
 // Iterate is an iterative lookup implementation
@@ -150,9 +167,6 @@ func newMsgFromParts(qName string, qType uint16) *dns.Msg {
 }
 
 func pickRoot() string {
-	var mu sync.RWMutex
-	mu.RLock()
-	defer mu.RUnlock()
 	for _, x := range roots {
 		return x
 	}
