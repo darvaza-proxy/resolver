@@ -7,15 +7,20 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestLookup(t *testing.T) {
-	start := "192.33.4.12:53"
-	z, err := Iterate(context.TODO(), "karasz.im", dns.TypeA, start)
+func TestLookupSimple(t *testing.T) {
+	z, err := Iterate(context.TODO(), "karasz.im", dns.TypeA, "")
 	if err != nil {
 		t.Errorf(err.Error())
-	} else {
-		t.Log(z.Answer[0].(*dns.A).A.String(), "95.216.149.141")
 	}
 	if z.Answer[0].(*dns.A).A.String() != "95.216.149.141" {
 		t.Errorf("ip is not the expected one")
 	}
+}
+
+func TestLookupComplex(t *testing.T) {
+	z, err := Iterate(context.TODO(), "fda.my.salesforce.com", dns.TypeA, "")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	t.Logf("Complex test yeld: %s", z.Answer[0].(*dns.A).A.String())
 }
