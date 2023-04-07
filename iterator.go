@@ -31,6 +31,7 @@ var roots = map[string]string{
 // RootLookuper does interative lookup using the given root-server
 // as starting point
 type RootLookuper struct {
+	c     *dns.Client
 	Start string
 }
 
@@ -38,18 +39,17 @@ type RootLookuper struct {
 // if the argument is ""
 func NewRootLookuper(start string) (*RootLookuper, error) {
 	if start == "" {
-		root := pickRoot()
-		return &RootLookuper{Start: root}, nil
+		return newRootLookuperUnchecked(pickRoot()), nil
 	}
 
 	for _, addr := range roots {
 		if start == addr {
-			return &RootLookuper{Start: addr}, nil
+			return newRootLookuperUnchecked(addr), nil
 		}
 	}
 
 	if addr, ok := roots[start]; ok {
-		return &RootLookuper{Start: addr}, nil
+		return newRootLookuperUnchecked(addr), nil
 	}
 
 	err := &net.DNSError{
@@ -59,6 +59,17 @@ func NewRootLookuper(start string) (*RootLookuper, error) {
 	return nil, err
 }
 
+func newRootLookuperUnchecked(start string) *RootLookuper {
+	c := new(dns.Client)
+	c.SingleInflight = true
+	c.UDPSize = DefaultUDPSize
+
+	return &RootLookuper{
+		c:     c,
+		Start: start,
+	}
+}
+
 // Lookup performs an iterative lookup
 func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
 	start := r.Start
@@ -66,13 +77,31 @@ func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*
 		start = pickRoot()
 	}
 
-	return Iterate(ctx, qName, qType, start+":53")
+	return r.Iterate(ctx, qName, qType, start+":53")
+}
+
+// Exchange queries a server and validates the response
+func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg, server string) (*dns.Msg, error) {
+	var resp *dns.Msg
+	var err error
+
+	if r.c != nil {
+		resp, _, err = r.c.ExchangeContext(ctx, m, server)
+	} else {
+		resp, err = dns.ExchangeContext(ctx, m, server)
+	}
+
+	if werr := validateResp(server, resp, err); werr != nil {
+		return nil, werr
+	}
+
+	return resp, nil
 }
 
 // Iterate is an iterative lookup implementation
 // revive:disable:cognitive-complexity
 // revive:disable:cyclomatic
-func Iterate(ctx context.Context, name string,
+func (r RootLookuper) Iterate(ctx context.Context, name string,
 	qtype uint16, startAt string,
 ) (*dns.Msg, error) {
 	// revive:enable:cognitive-complexity
@@ -82,11 +111,13 @@ func Iterate(ctx context.Context, name string,
 	}
 	server := startAt
 	name = dns.Fqdn(name)
-	msg := newMsgFromParts(name, qtype)
-	resp, err := dns.ExchangeContext(ctx, msg, server)
-	if werr := validateResp(server, resp, err); werr != nil {
-		return nil, werr
+
+	msg := r.newMsgFromParts(name, qtype)
+	resp, err := r.Exchange(ctx, msg, server)
+	if err != nil {
+		return nil, err
 	}
+
 	nextServer := make([]string, 0)
 	rCase := typify(resp)
 	switch rCase {
@@ -112,16 +143,16 @@ func Iterate(ctx context.Context, name string,
 		if !ok {
 			server = nns
 			if !isIP4(server) {
-				if server, err = hostFromRoot(ctx, nns); err != nil {
+				if server, err = r.hostFromRoot(ctx, nns); err != nil {
 					return nil, err
 				}
 			}
 		}
-		return Iterate(ctx, name, qtype, server+":53")
+		return r.Iterate(ctx, name, qtype, server+":53")
 	case "Answer":
 		return resp, nil
 	case "Cname":
-		return Iterate(ctx, resp.Answer[0].(*dns.CNAME).Target, qtype, "")
+		return r.Iterate(ctx, resp.Answer[0].(*dns.CNAME).Target, qtype, "")
 	default:
 		return nil, fmt.Errorf("got error %s", rCase)
 	}
@@ -131,16 +162,17 @@ func isIP4(s string) bool {
 	return net.ParseIP(s) != nil
 }
 
-func hostFromRoot(ctx context.Context, h string) (string, error) {
+func (r RootLookuper) hostFromRoot(ctx context.Context, h string) (string, error) {
 	askRoot := pickRoot()
 	if askRoot == "" {
 		return "", fmt.Errorf("could not pick root")
 	}
 	askRoot = askRoot + ":53"
-	msg, err := Iterate(ctx, h, dns.TypeA, askRoot)
-	if werr := validateResp(askRoot, msg, err); werr != nil {
-		return "", werr
+	msg, err := r.Iterate(ctx, h, dns.TypeA, askRoot)
+	if err != nil {
+		return "", err
 	}
+
 	ans, ok := core.SliceRandom(msg.Answer)
 	if !ok {
 		return "", fmt.Errorf("cannot select random from answer")
@@ -149,7 +181,7 @@ func hostFromRoot(ctx context.Context, h string) (string, error) {
 	return result, nil
 }
 
-func newMsgFromParts(qName string, qType uint16) *dns.Msg {
+func (RootLookuper) newMsgFromParts(qName string, qType uint16) *dns.Msg {
 	msg := new(dns.Msg)
 	msg.SetQuestion(qName, qType)
 	msg.RecursionDesired = false
