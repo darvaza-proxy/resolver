@@ -8,7 +8,12 @@ import (
 )
 
 func TestLookupSimple(t *testing.T) {
-	z, err := Iterate(context.TODO(), "karasz.im", dns.TypeA, "")
+	root, err := NewRootLookuper("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	z, err := root.Iterate(context.TODO(), "karasz.im", dns.TypeA, "")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -18,7 +23,12 @@ func TestLookupSimple(t *testing.T) {
 }
 
 func TestLookupComplex(t *testing.T) {
-	z, err := Iterate(context.TODO(), "fda.my.salesforce.com", dns.TypeA, "")
+	root, err := NewRootLookuper("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	z, err := root.Iterate(context.TODO(), "fda.my.salesforce.com", dns.TypeA, "")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
