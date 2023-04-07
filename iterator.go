@@ -10,9 +10,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-var (
-	_ Lookuper = (*RootLookuper)(nil)
-)
+var _ Lookuper = (*RootLookuper)(nil)
 
 var roots = map[string]string{
 	"a.root-servers.net": "198.41.0.4",
@@ -80,7 +78,7 @@ func Iterate(ctx context.Context, name string,
 	// revive:enable:cognitive-complexity
 	// revive:enable:cyclomatic
 	if startAt == "" {
-		return nil, fmt.Errorf("no anchor given")
+		startAt = pickRoot() + ":53"
 	}
 	server := startAt
 	name = dns.Fqdn(name)
@@ -89,51 +87,44 @@ func Iterate(ctx context.Context, name string,
 	if werr := validateResp(server, resp, err); werr != nil {
 		return nil, werr
 	}
-
-	if len(resp.Answer) == 0 {
-		nextServer := make([]string, 0)
-		if len(resp.Ns) > 0 {
-			if len(resp.Extra) > 1 {
-				// we have referral and GLUE so use GLUE
-				// nextServer is an IP, no need to look it up
-				// we always have 1 Extra because we increase UDP
-				// packet size
-				for _, ref := range resp.Extra {
-					if ref.Header().Rrtype == dns.TypeA {
-						nextServer = append(nextServer, ref.(*dns.A).A.String())
-					}
-				}
-			} else {
-				// We have referral but no GLUE, use referral
-				// nextServer is a hostname and we need to look it up
-				for _, ns := range resp.Ns {
-					if ns.Header().Rrtype == dns.TypeNS {
-						nextServer = append(nextServer, strings.TrimSuffix(ns.(*dns.NS).Ns, "."))
-					}
+	nextServer := make([]string, 0)
+	rCase := typify(resp)
+	switch rCase {
+	case "Delegation", "Namezone":
+		if rCase == "Delegation" {
+			for _, ref := range resp.Extra {
+				if ref.Header().Rrtype == dns.TypeA {
+					nextServer = append(nextServer, ref.(*dns.A).A.String())
 				}
 			}
-			nns, ok := core.SliceRandom(nextServer)
-			if !ok {
-				return nil, fmt.Errorf("cannot extract nextServer from referrals")
-			}
-			// is the nextServer a Root Server?
-			server, ok = roots[nns]
-			if !ok {
-				// server is not a root server set it back
-				server = nns
-				if !isIP4(server) {
-					// server is a hostname we  need to resolve
-					if server, err = hostFromRoot(ctx, nns); err != nil {
-						return nil, err
-					}
+		} else {
+			for _, ns := range resp.Ns {
+				if ns.Header().Rrtype == dns.TypeNS {
+					nextServer = append(nextServer, strings.TrimSuffix(ns.(*dns.NS).Ns, "."))
 				}
 			}
-			return Iterate(ctx, name, qtype, server+":53")
 		}
-		return nil, fmt.Errorf("server %s is lame, gave no answer nor referal", server)
+		nns, ok := core.SliceRandom(nextServer)
+		if !ok {
+			return nil, fmt.Errorf("cannot extract nextServer from list")
+		}
+		server, ok = roots[nns]
+		if !ok {
+			server = nns
+			if !isIP4(server) {
+				if server, err = hostFromRoot(ctx, nns); err != nil {
+					return nil, err
+				}
+			}
+		}
+		return Iterate(ctx, name, qtype, server+":53")
+	case "Answer":
+		return resp, nil
+	case "Cname":
+		return Iterate(ctx, resp.Answer[0].(*dns.CNAME).Target, qtype, "")
+	default:
+		return nil, fmt.Errorf("got error %s", rCase)
 	}
-	// We got an answer
-	return resp, nil
 }
 
 func isIP4(s string) bool {
@@ -171,4 +162,35 @@ func pickRoot() string {
 		return x
 	}
 	return ""
+}
+
+func typify(m *dns.Msg) string {
+	if m != nil {
+		switch m.Rcode {
+		case dns.RcodeSuccess:
+			return recType(m)
+		case dns.RcodeRefused:
+			return "Refused"
+		case dns.RcodeFormatError:
+			return "NoEDNS"
+		default:
+			return "Unknown"
+		}
+	}
+	return "Nil message"
+}
+
+func recType(m *dns.Msg) string {
+	if len(m.Answer) > 0 {
+		if m.Answer[0].Header().Rrtype == dns.TypeCNAME {
+			return "Cname"
+		}
+		return "Answer"
+	}
+	if len(m.Ns) > 0 {
+		if len(m.Extra) < 2 {
+			return "Namezone"
+		}
+	}
+	return "Delegation"
 }
