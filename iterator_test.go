@@ -7,30 +7,35 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestLookupSimple(t *testing.T) {
+func TestRootLookup(t *testing.T) {
 	root, err := NewRootLookuper("")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	z, err := root.Iterate(context.TODO(), "karasz.im", dns.TypeA, "")
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-	if z.Answer[0].(*dns.A).A.String() != "95.216.149.141" {
-		t.Errorf("ip is not the expected one")
-	}
+	// Simple
+	testRootTypeA(t, root, "karasz.im", "95.216.149.141")
+	// Complex
+	testRootTypeA(t, root, "fda.my.salesforce.com", "")
+	// EDU
+	testRootTypeA(t, root, "www.seas.upenn.edu", "")
 }
 
-func TestLookupComplex(t *testing.T) {
-	root, err := NewRootLookuper("")
+func testRootTypeA(t *testing.T, h Lookuper, name, address string) {
+	z, err := h.Lookup(context.TODO(), name, dns.TypeA)
 	if err != nil {
-		t.Fatal(err)
+		t.Errorf("%s: %s", name, err.Error())
+		return
 	}
 
-	z, err := root.Iterate(context.TODO(), "fda.my.salesforce.com", dns.TypeA, "")
-	if err != nil {
-		t.Errorf(err.Error())
+	first := z.Answer[0].(*dns.A).A.String()
+
+	if address != "" {
+		if first != address {
+			t.Errorf("%s: %s (expected %s)", name, first, address)
+			return
+		}
 	}
-	t.Logf("Complex test yeld: %s", z.Answer[0].(*dns.A).A.String())
+
+	t.Logf("%s: %s", name, first)
 }
