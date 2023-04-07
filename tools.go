@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	"darvaza.org/core"
@@ -87,5 +88,26 @@ func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
 		if v, ok := ans.(T); ok {
 			fn(v)
 		}
+	}
+}
+
+// AsServerAddress validates and optionally appends :53 port if
+// it wasn't specified already
+func AsServerAddress(server string) (string, error) {
+	host, port, err := core.SplitHostPort(server)
+	if err != nil {
+		return "", err
+	}
+
+	if port == "" {
+		port = "53"
+	}
+
+	if addr, err := core.ParseAddr(server); err != nil {
+		return "", err
+	} else if addr.Is6() {
+		return fmt.Sprintf("[%s]:%s", host, port), nil
+	} else {
+		return host + ":" + port, nil
 	}
 }
