@@ -18,15 +18,18 @@ var (
 
 var (
 	errNotImplemented = errors.New("not implemented")
-	errNoAnswer       = errors.New("no answer")
 )
 
 // A ZeroLookuper is a Lookuper that never finds anything
 type ZeroLookuper struct{}
 
 // Lookup implements Lookuper but always fails
-func (ZeroLookuper) Lookup(_ context.Context, _ string, _ uint16) (*dns.Msg, error) {
-	return nil, errNoAnswer
+func (ZeroLookuper) Lookup(_ context.Context, qName string, _ uint16) (*dns.Msg, error) {
+	err := &net.DNSError{
+		Err:  "no answer",
+		Name: qName,
+	}
+	return nil, err
 }
 
 // NewResolver returns a Resolver using the provided Lookuper
