@@ -13,6 +13,14 @@ import (
 func validateResp(server string, r *dns.Msg, err error) error {
 	name := nameFromMsg(r, "unknown")
 
+	if e, ok := err.(*net.DNSError); ok {
+		// pass through
+		if e.Server == "" {
+			e.Server = server
+		}
+		return e
+	}
+
 	if err != nil {
 		// TODO: extract information from err.(type)
 		var timeout bool
