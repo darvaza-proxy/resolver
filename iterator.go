@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 
+	"darvaza.org/cache"
 	"darvaza.org/core"
 	"github.com/miekg/dns"
 )
@@ -32,6 +33,7 @@ var roots = map[string]string{
 // as starting point
 type RootLookuper struct {
 	c     *dns.Client
+	cache cache.Cache
 	Start string
 }
 
@@ -92,6 +94,16 @@ func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*
 
 // Exchange queries a server and validates the response
 func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg, server string) (*dns.Msg, error) {
+	if r.cache != nil {
+		return r.cachedExchange(ctx, m, server)
+	}
+
+	return r.directExchange(ctx, m, server)
+}
+
+func (r RootLookuper) directExchange(ctx context.Context,
+	m *dns.Msg, server string) (*dns.Msg, error) {
+	//
 	var resp *dns.Msg
 	var err error
 
@@ -106,6 +118,20 @@ func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg, server string) (
 	}
 
 	return resp, nil
+}
+
+// NewCache creates a [cache.Cache] on the provided [cache.Store] for dns Answers
+func (r *RootLookuper) NewCache(s cache.Store, name string, maxBytes int) error {
+	r.cache = s.NewCache(name, int64(maxBytes), cache.GetterFunc(r.cacheGetter))
+	return nil
+}
+
+func (RootLookuper) cacheGetter(_ context.Context, name string, _ cache.Sink) error {
+	return ErrNotImplemented(name)
+}
+
+func (RootLookuper) cachedExchange(_ context.Context, _ *dns.Msg, _ string) (*dns.Msg, error) {
+	return nil, ErrNotImplemented("")
 }
 
 // Iterate is an iterative lookup implementation
