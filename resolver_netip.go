@@ -110,10 +110,51 @@ func (r LookupResolver) goLookupNetIPq(ctx context.Context,
 	return s, coalesceError(e1, e2, e3)
 }
 
-func eqNetIP(_, _ netip.Addr) bool {
+func eqNetIP(ip1, ip2 netip.Addr) bool {
+	if res := ip1.Compare(ip2); res == 0 {
+		return true
+	}
 	return false
 }
 
-func msgToNetIPq(_ *dns.Msg, _ uint16) ([]netip.Addr, error) {
-	return nil, errNotImplemented
+// revive:disable:cognitive-complexity
+func msgToNetIPq(m *dns.Msg, qType uint16) ([]netip.Addr, error) {
+	// revive:enable:cognitive-complexity
+	s := []netip.Addr{}
+	if !validMsg(m) {
+		return nil, errBadMessage
+	}
+	if dns.TypeToString[qType] == "A" {
+		for _, rec := range m.Answer {
+			if rec.Header().Rrtype == dns.TypeA {
+				if ip, ok := netip.AddrFromSlice(rec.(*dns.A).A); ok {
+					s = append(s, ip)
+				}
+			}
+		}
+	}
+	if dns.TypeToString[qType] == "AAAA" {
+		for _, rec := range m.Answer {
+			if rec.Header().Rrtype == dns.TypeAAAA {
+				if ip, ok := netip.AddrFromSlice(rec.(*dns.AAAA).AAAA); ok {
+					s = append(s, ip)
+				}
+			}
+		}
+	}
+	return s, nil
+}
+
+func validMsg(m *dns.Msg) bool {
+	var res int
+	if m != nil {
+		res++
+	}
+	if m.Rcode == dns.RcodeSuccess {
+		res++
+	}
+	if len(m.Answer) > 0 {
+		res++
+	}
+	return res > 2
 }
