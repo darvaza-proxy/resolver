@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
@@ -74,6 +75,18 @@ func nameFromMsg(msg *dns.Msg, fallback string) string {
 	return fallback
 }
 
+func sanitiseNetwork(network string) (string, error) {
+	s := strings.ToLower(network)
+	switch s {
+	case "":
+		return "ip", nil
+	case "ip", "ip4", "ip6":
+		return s, nil
+	default:
+		return "", fmt.Errorf("%q: invalid network", network)
+	}
+}
+
 func sanitiseHost(host string) (string, error) {
 	if host != "" {
 		s, err := idna.Display.ToASCII(host)
@@ -84,6 +97,15 @@ func sanitiseHost(host string) (string, error) {
 	}
 
 	return "", errors.New("empty host")
+}
+
+func coalesceError(err ...error) error {
+	for _, e := range err {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 // ForEachAnswer calls a function for each answer of the specified type.
