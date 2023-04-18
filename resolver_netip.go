@@ -120,41 +120,28 @@ func eqNetIP(ip1, ip2 netip.Addr) bool {
 // revive:disable:cognitive-complexity
 func msgToNetIPq(m *dns.Msg, qType uint16) ([]netip.Addr, error) {
 	// revive:enable:cognitive-complexity
-	s := []netip.Addr{}
-	if !validMsg(m) {
-		return nil, errBadMessage
-	}
-	if dns.TypeToString[qType] == "A" {
-		for _, rec := range m.Answer {
-			if rec.Header().Rrtype == dns.TypeA {
-				if ip, ok := netip.AddrFromSlice(rec.(*dns.A).A); ok {
-					s = append(s, ip)
-				}
-			}
-		}
-	}
-	if dns.TypeToString[qType] == "AAAA" {
-		for _, rec := range m.Answer {
-			if rec.Header().Rrtype == dns.TypeAAAA {
-				if ip, ok := netip.AddrFromSlice(rec.(*dns.AAAA).AAAA); ok {
-					s = append(s, ip)
-				}
-			}
-		}
-	}
-	return s, nil
-}
+	var s []netip.Addr
 
-func validMsg(m *dns.Msg) bool {
-	var res int
-	if m != nil {
-		res++
+	if successMsg(m) {
+		switch qType {
+		case dns.TypeA:
+			ForEachAnswer(m, func(r *dns.A) {
+				if ip, ok := netip.AddrFromSlice(r.A); ok {
+					s = append(s, ip)
+				}
+			})
+		case dns.TypeAAAA:
+			ForEachAnswer(m, func(r *dns.AAAA) {
+				if ip, ok := netip.AddrFromSlice(r.AAAA); ok {
+					s = append(s, ip)
+				}
+			})
+		}
+
+		if len(s) > 0 {
+			return s, nil
+		}
 	}
-	if m.Rcode == dns.RcodeSuccess {
-		res++
-	}
-	if len(m.Answer) > 0 {
-		res++
-	}
-	return res > 2
+
+	return nil, errBadMessage
 }

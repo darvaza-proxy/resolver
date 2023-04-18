@@ -11,6 +11,13 @@ import (
 	"golang.org/x/net/idna"
 )
 
+func successMsg(m *dns.Msg) bool {
+	if m != nil && m.Rcode == dns.RcodeSuccess && len(m.Answer) > 0 {
+		return true
+	}
+	return false
+}
+
 func validateResp(server string, r *dns.Msg, err error) error {
 	name := nameFromMsg(r, "unknown")
 
