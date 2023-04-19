@@ -46,22 +46,6 @@ type LookupResolver struct {
 	h Lookuper
 }
 
-// LookupIPAddr returns the IP addresses of a host
-func (LookupResolver) LookupIPAddr(_ context.Context,
-	_ string,
-) ([]net.IPAddr, error) {
-	//
-	return nil, errNotImplemented
-}
-
-// LookupIP returns the IP addresses of a host
-func (LookupResolver) LookupIP(_ context.Context,
-	_, _ string,
-) ([]net.IP, error) {
-	//
-	return nil, errNotImplemented
-}
-
 // LookupAddr performs a reverse lookup for the given address, returning a
 // list of names mapping to that address
 func (LookupResolver) LookupAddr(_ context.Context,
