@@ -101,49 +101,82 @@ func (r LookupResolver) goLookupIP(ctx context.Context,
 	}()
 	wg.Wait()
 
-	return append(s1, s2...), coalesceError(e1, e2)
+	s := append(s1, s2...)
+	switch {
+	case len(s) > 0:
+		return s, nil
+	case e1 != nil:
+		return nil, e1
+	default:
+		return nil, e2
+	}
 }
 
 func (r LookupResolver) goLookupIPq(ctx context.Context,
-	qhost string, qType uint16) ([]net.IP, error) {
+	qHost string, qType uint16) ([]net.IP, error) {
 	//
 	var wg sync.WaitGroup
-	var s1, s3 []net.IP
-	var e1, e2, e3 error
+	var s1, s2 []net.IP
+	var e1, e2 error
 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		var msg *dns.Msg
-		var e1p error
-
-		msg, e1 = r.h.Lookup(ctx, qhost, qType)
-		s1, e1p = msgToIPq(msg, qType)
-
-		if e1 == nil {
-			e1 = e1p
-		}
+		s1, e1 = r.lookupIPq(ctx, qHost, qType)
 	}()
-
 	go func() {
-		var cname string
-
 		defer wg.Done()
-
-		cname, e2 = r.LookupCNAME(ctx, qhost)
-		if cname != "" {
-			cname = dns.CanonicalName(cname)
-			if cname != qhost {
-				s3, e3 = r.goLookupIPq(ctx, cname, qType)
-			}
-		}
+		s2, e2 = r.lookupIPqCNAME(ctx, qHost, qType)
 	}()
 	wg.Wait()
 
-	s := append(s1, s3...)
-	core.SliceUniquifyFn(&s, eqIP)
+	s := append(s1, s2...)
+	switch {
+	case len(s) > 0:
+		core.SliceUniquifyFn(&s, eqIP)
+		return s, nil
+	case e1 != nil:
+		return nil, e1
+	default:
+		return nil, e2
+	}
+}
 
-	return s, coalesceError(e1, e2, e3)
+func (r LookupResolver) lookupIPq(ctx context.Context,
+	qHost string, qType uint16) ([]net.IP, error) {
+	//
+	msg, e1 := r.h.Lookup(ctx, qHost, qType)
+	s, e2 := msgToIPq(msg, qType)
+
+	switch {
+	case len(s) > 0:
+		return s, nil
+	case e1 != nil:
+		return nil, e1
+	default:
+		return nil, e2
+	}
+}
+
+func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
+	qHost string, qType uint16) ([]net.IP, error) {
+	//
+	cname, e1 := r.LookupCNAME(ctx, qHost)
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	if cname != "" {
+		cname = dns.CanonicalName(cname)
+		if cname != qHost {
+			return r.goLookupIPq(ctx, cname, qType)
+		}
+	}
+
+	return nil, e1
 }
 
 // revive:disable:cognitive-complexity
