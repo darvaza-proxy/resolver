@@ -25,29 +25,31 @@ func (r LookupResolver) LookupIPAddr(ctx context.Context,
 	return out, err
 }
 
-// LookupIP returns the IP addresses of a host
-// in the form of a slice of net.IP.
+// LookupNetIP looks up host using the assigned Lookuper. It returns a
+// slice of that host's IP addresses of the type specified by network.
 // The network must be one of "ip", "ip4" or "ip6".
-func (r LookupResolver) LookupIP(ctx context.Context,
-	network, host string) ([]net.IP, error) {
+func (r LookupResolver) LookupNetIP(ctx context.Context,
+	network, host string) ([]netip.Addr, error) {
 	//
-	addrs, err := r.LookupNetIP(ctx, network, host)
-	out := make([]net.IP, 0, len(addrs))
+	addrs, err := r.LookupIP(ctx, network, host)
+	out := make([]netip.Addr, 0, len(addrs))
 
-	for _, addr := range addrs {
-		if addr.IsValid() {
-			out = append(out, addr.AsSlice())
+	for _, ip := range addrs {
+		if addr, ok := netip.AddrFromSlice(ip); ok {
+			if addr.IsValid() {
+				out = append(out, addr)
+			}
 		}
 	}
 
 	return out, err
 }
 
-// LookupNetIP looks up host using the assigned Lookuper. It returns a
-// slice of that host's IP addresses of the type specified by network.
+// LookupIP returns the IP addresses of a host
+// in the form of a slice of net.IP.
 // The network must be one of "ip", "ip4" or "ip6".
-func (r LookupResolver) LookupNetIP(ctx context.Context,
-	network, host string) (s []netip.Addr, err error) {
+func (r LookupResolver) LookupIP(ctx context.Context,
+	network, host string) (s []net.IP, err error) {
 	//
 	network, err = sanitiseNetwork(network)
 	if err != nil {
@@ -63,50 +65,50 @@ func (r LookupResolver) LookupNetIP(ctx context.Context,
 		ctx = context.Background()
 	}
 
-	return r.doLookupNetIP(ctx, network, host)
+	return r.doLookupIP(ctx, network, host)
 }
 
-func (r LookupResolver) doLookupNetIP(ctx context.Context,
-	network, host string) ([]netip.Addr, error) {
+func (r LookupResolver) doLookupIP(ctx context.Context,
+	network, host string) ([]net.IP, error) {
 	//
 	qhost := dns.CanonicalName(host)
 
 	switch network {
 	case "ip":
-		return r.goLookupNetIP(ctx, qhost)
+		return r.goLookupIP(ctx, qhost)
 	case "ip4":
-		return r.goLookupNetIPq(ctx, qhost, dns.TypeA)
+		return r.goLookupIPq(ctx, qhost, dns.TypeA)
 	default:
-		return r.goLookupNetIPq(ctx, qhost, dns.TypeAAAA)
+		return r.goLookupIPq(ctx, qhost, dns.TypeAAAA)
 	}
 }
 
-func (r LookupResolver) goLookupNetIP(ctx context.Context,
-	qhost string) ([]netip.Addr, error) {
+func (r LookupResolver) goLookupIP(ctx context.Context,
+	qhost string) ([]net.IP, error) {
 	//
 	var wg sync.WaitGroup
-	var s1, s2 []netip.Addr
+	var s1, s2 []net.IP
 	var e1, e2 error
 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		s1, e1 = r.goLookupNetIPq(ctx, qhost, dns.TypeA)
+		s1, e1 = r.goLookupIPq(ctx, qhost, dns.TypeA)
 	}()
 	go func() {
 		defer wg.Done()
-		s2, e2 = r.goLookupNetIPq(ctx, qhost, dns.TypeAAAA)
+		s2, e2 = r.goLookupIPq(ctx, qhost, dns.TypeAAAA)
 	}()
 	wg.Wait()
 
 	return append(s1, s2...), coalesceError(e1, e2)
 }
 
-func (r LookupResolver) goLookupNetIPq(ctx context.Context,
-	qhost string, qType uint16) ([]netip.Addr, error) {
+func (r LookupResolver) goLookupIPq(ctx context.Context,
+	qhost string, qType uint16) ([]net.IP, error) {
 	//
 	var wg sync.WaitGroup
-	var s1, s3 []netip.Addr
+	var s1, s3 []net.IP
 	var e1, e2, e3 error
 
 	wg.Add(2)
@@ -116,7 +118,7 @@ func (r LookupResolver) goLookupNetIPq(ctx context.Context,
 		var e1p error
 
 		msg, e1 = r.h.Lookup(ctx, qhost, qType)
-		s1, e1p = msgToNetIPq(msg, qType)
+		s1, e1p = msgToIPq(msg, qType)
 
 		if e1 == nil {
 			e1 = e1p
@@ -132,43 +134,32 @@ func (r LookupResolver) goLookupNetIPq(ctx context.Context,
 		if cname != "" {
 			cname = dns.CanonicalName(cname)
 			if cname != qhost {
-				s3, e3 = r.goLookupNetIPq(ctx, cname, qType)
+				s3, e3 = r.goLookupIPq(ctx, cname, qType)
 			}
 		}
 	}()
 	wg.Wait()
 
 	s := append(s1, s3...)
-	core.SliceUniquifyFn(&s, eqNetIP)
+	core.SliceUniquifyFn(&s, eqIP)
 
 	return s, coalesceError(e1, e2, e3)
 }
 
-func eqNetIP(ip1, ip2 netip.Addr) bool {
-	if res := ip1.Compare(ip2); res == 0 {
-		return true
-	}
-	return false
-}
-
 // revive:disable:cognitive-complexity
-func msgToNetIPq(m *dns.Msg, qType uint16) ([]netip.Addr, error) {
+func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, error) {
 	// revive:enable:cognitive-complexity
 	if successMsg(m) {
-		var s []netip.Addr
+		var s []net.IP
 
 		switch qType {
 		case dns.TypeA:
 			ForEachAnswer(m, func(r *dns.A) {
-				if ip, ok := netip.AddrFromSlice(r.A); ok {
-					s = append(s, ip)
-				}
+				s = append(s, r.A)
 			})
 		case dns.TypeAAAA:
 			ForEachAnswer(m, func(r *dns.AAAA) {
-				if ip, ok := netip.AddrFromSlice(r.AAAA); ok {
-					s = append(s, ip)
-				}
+				s = append(s, r.AAAA)
 			})
 		}
 
