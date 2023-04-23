@@ -115,6 +115,10 @@ func coalesceError(err ...error) error {
 	return nil
 }
 
+func eqIP(ip1, ip2 net.IP) bool {
+	return ip1.Equal(ip2)
+}
+
 // ForEachAnswer calls a function for each answer of the specified type.
 func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
 	if fn == nil || msg == nil {
