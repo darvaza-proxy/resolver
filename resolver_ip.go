@@ -65,26 +65,26 @@ func (r LookupResolver) LookupIP(ctx context.Context,
 		ctx = context.Background()
 	}
 
-	return r.doLookupIP(ctx, network, host)
+	return r.doLookupIP(ctx, network, host, true)
 }
 
 func (r LookupResolver) doLookupIP(ctx context.Context,
-	network, host string) ([]net.IP, error) {
+	network, host string, cname bool) ([]net.IP, error) {
 	//
 	qhost := dns.CanonicalName(host)
 
 	switch network {
 	case "ip":
-		return r.goLookupIP(ctx, qhost)
+		return r.goLookupIP(ctx, qhost, cname)
 	case "ip4":
-		return r.goLookupIPq(ctx, qhost, dns.TypeA)
+		return r.goLookupIPq(ctx, qhost, dns.TypeA, cname)
 	default:
-		return r.goLookupIPq(ctx, qhost, dns.TypeAAAA)
+		return r.goLookupIPq(ctx, qhost, dns.TypeAAAA, cname)
 	}
 }
 
 func (r LookupResolver) goLookupIP(ctx context.Context,
-	qhost string) ([]net.IP, error) {
+	qhost string, cname bool) ([]net.IP, error) {
 	//
 	var wg sync.WaitGroup
 	var s1, s2 []net.IP
@@ -93,11 +93,11 @@ func (r LookupResolver) goLookupIP(ctx context.Context,
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		s1, e1 = r.goLookupIPq(ctx, qhost, dns.TypeA)
+		s1, e1 = r.goLookupIPq(ctx, qhost, dns.TypeA, cname)
 	}()
 	go func() {
 		defer wg.Done()
-		s2, e2 = r.goLookupIPq(ctx, qhost, dns.TypeAAAA)
+		s2, e2 = r.goLookupIPq(ctx, qhost, dns.TypeAAAA, cname)
 	}()
 	wg.Wait()
 
@@ -112,22 +112,28 @@ func (r LookupResolver) goLookupIP(ctx context.Context,
 	}
 }
 
+// revive:disable:flag-parameter
 func (r LookupResolver) goLookupIPq(ctx context.Context,
-	qHost string, qType uint16) ([]net.IP, error) {
-	//
+	qHost string, qType uint16, cname bool) ([]net.IP, error) {
+	// revive:enable:flag-parameter
 	var wg sync.WaitGroup
 	var s1, s2 []net.IP
 	var e1, e2 error
 
-	wg.Add(2)
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		s1, e1 = r.lookupIPq(ctx, qHost, qType)
 	}()
-	go func() {
-		defer wg.Done()
-		s2, e2 = r.lookupIPqCNAME(ctx, qHost, qType)
-	}()
+
+	if cname {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s2, e2 = r.lookupIPqCNAME(ctx, qHost, qType)
+		}()
+	}
+
 	wg.Wait()
 
 	s := append(s1, s2...)
@@ -172,7 +178,7 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 	if cname != "" {
 		cname = dns.CanonicalName(cname)
 		if cname != qHost {
-			return r.goLookupIPq(ctx, cname, qType)
+			return r.goLookupIPq(ctx, cname, qType, false)
 		}
 	}
 
