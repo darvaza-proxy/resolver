@@ -16,8 +16,12 @@ func TestLookupNetIP(t *testing.T) {
 		{name: "IPv4", network: "ip4", wantok: true},
 		{name: "IPv6", network: "ip6", wantok: true},
 	}
+	h, err := NewRootLookuper("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := NewResolver(h)
 	for _, tc := range tests {
-		l := SystemResolver(true)
 		s, err := l.LookupNetIP(context.Background(), tc.network, "google.com")
 		if err != nil {
 			t.Fatalf(err.Error())
