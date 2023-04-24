@@ -30,18 +30,13 @@ func validateResp(server string, r *dns.Msg, err error) error {
 	}
 
 	if err != nil {
-		// TODO: extract information from err.(type)
-		var timeout bool
-		var temporary bool
-		var notfound bool
-
 		return &net.DNSError{
 			Err:         err.Error(),
 			Server:      server,
 			Name:        name,
-			IsTimeout:   timeout,
-			IsTemporary: temporary,
-			IsNotFound:  notfound,
+			IsTimeout:   IsTimeout(err),
+			IsTemporary: IsTemporary(err),
+			IsNotFound:  IsNotFound(err),
 		}
 	}
 
@@ -53,7 +48,10 @@ func validateResp(server string, r *dns.Msg, err error) error {
 		}
 	}
 
-	if r.Rcode != dns.RcodeSuccess {
+	switch r.Rcode {
+	case dns.RcodeSuccess:
+		return nil
+	default:
 		// TODO: decipher Rcode
 		var timeout bool
 		var temporary bool
@@ -68,9 +66,6 @@ func validateResp(server string, r *dns.Msg, err error) error {
 			IsNotFound:  notfound,
 		}
 	}
-
-	// Success
-	return nil
 }
 
 func nameFromMsg(msg *dns.Msg, fallback string) string {

@@ -42,3 +42,24 @@ func IsNotFound(err error) bool {
 		return os.IsNotExist(err)
 	}
 }
+
+// IsTimeout checks if the given error represents a Timeout
+func IsTimeout(err error) bool {
+	if err == nil {
+		return false
+	} else if e, ok := err.(*net.DNSError); ok {
+		return e.Timeout()
+	} else {
+		return os.IsTimeout(err)
+	}
+}
+
+// IsTemporary checks if the given error could be rechecked
+func IsTemporary(err error) bool {
+	if e, ok := err.(interface {
+		Temporary() bool
+	}); ok {
+		return e.Temporary()
+	}
+	return false
+}
