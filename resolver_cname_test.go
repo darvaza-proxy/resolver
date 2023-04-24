@@ -15,11 +15,7 @@ func TestLookupCNAME(t *testing.T) {
 		{"cname-to-txt.go4.org", []string{"test-txt-record.go4.org"}},
 	}
 	ctx := context.Background()
-	h, err := NewRootLookuper("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	l := NewResolver(h)
+	l := NewResolver(NewCloudflareLookuper())
 	for _, tc := range tests {
 		s, err := l.LookupCNAME(ctx, tc.name)
 		if err != nil {
