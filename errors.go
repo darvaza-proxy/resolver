@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"net"
+	"os"
 	"strings"
 
 	"darvaza.org/core"
@@ -28,5 +29,16 @@ func ErrTimeout(qName string, err error) *net.DNSError {
 		Name:        qName,
 		IsTimeout:   true,
 		IsTemporary: true,
+	}
+}
+
+// IsNotFound checks if the given error represents a NotFound
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	} else if e, ok := err.(*net.DNSError); ok {
+		return e.IsNotFound
+	} else {
+		return os.IsNotExist(err)
 	}
 }
