@@ -8,6 +8,16 @@ import (
 	"darvaza.org/core"
 )
 
+// ErrNotFound assembles an net.DNSError error with
+// IsNotFound set
+func ErrNotFound(qName string) *net.DNSError {
+	return &net.DNSError{
+		Err:        "entry not found",
+		Name:       qName,
+		IsNotFound: true,
+	}
+}
+
 // ErrTimeoutMessage is a variant of ErrTimeout that uses
 // a given message instead of wrapping an error
 func ErrTimeoutMessage(qName string, msg string) *net.DNSError {
