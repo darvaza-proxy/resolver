@@ -119,6 +119,17 @@ func eqIP(ip1, ip2 net.IP) bool {
 	return ip1.Equal(ip2)
 }
 
+// Decanonize removes the trailing . if present, unless
+// it's the root dot
+func Decanonize(qname string) string {
+	if l := len(qname); l > 1 {
+		if qname[l-1] == '.' {
+			return qname[:l-1]
+		}
+	}
+	return qname
+}
+
 // ForEachAnswer calls a function for each answer of the specified type.
 func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
 	if fn == nil || msg == nil {
