@@ -18,7 +18,7 @@ func successMsg(m *dns.Msg) bool {
 	return false
 }
 
-func validateResp(server string, r *dns.Msg, err error) error {
+func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 	name := nameFromMsg(r, "unknown")
 
 	if e, ok := err.(*net.DNSError); ok {
