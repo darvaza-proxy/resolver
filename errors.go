@@ -8,6 +8,17 @@ import (
 	"darvaza.org/core"
 )
 
+// ErrTimeoutMessage is a variant of ErrTimeout that uses
+// a given message instead of wrapping an error
+func ErrTimeoutMessage(qName string, msg string) *net.DNSError {
+	return &net.DNSError{
+		Err:         msg,
+		Name:        qName,
+		IsTimeout:   true,
+		IsTemporary: true,
+	}
+}
+
 // ErrTimeout assembles a Timeout() error
 func ErrTimeout(qName string, err error) *net.DNSError {
 	if e, ok := err.(*net.DNSError); ok {
@@ -23,13 +34,7 @@ func ErrTimeout(qName string, err error) *net.DNSError {
 	}
 
 	msg := core.Coalesce(err.Error(), "request timed out")
-
-	return &net.DNSError{
-		Err:         strings.TrimPrefix(msg, "dns: "),
-		Name:        qName,
-		IsTimeout:   true,
-		IsTemporary: true,
-	}
+	return ErrTimeoutMessage(qName, strings.TrimPrefix(msg, "dns: "))
 }
 
 // IsNotFound checks if the given error represents a NotFound
