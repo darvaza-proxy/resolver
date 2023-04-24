@@ -101,6 +101,18 @@ func sanitiseHost(host string) (string, error) {
 	return "", errors.New("empty host")
 }
 
+func sanitiseHost2(host string) (string, *net.DNSError) {
+	s, err := sanitiseHost(host)
+	if err == nil {
+		return s, nil
+	}
+
+	return "", &net.DNSError{
+		Name: host,
+		Err:  err.Error(),
+	}
+}
+
 func coalesceError(err ...error) error {
 	for _, e := range err {
 		if e != nil {
