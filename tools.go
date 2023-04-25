@@ -42,13 +42,16 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 	case r == nil:
 		return &net.DNSError{
 			Err:         "invalid response",
+			Server:      server,
+			Name:        name,
 			IsTemporary: true,
 		}
 	case r.Truncated:
 		return &net.DNSError{
-			Err:    "dns response was truncated",
-			Server: server,
-			Name:   name,
+			Err:         "dns response was truncated",
+			Server:      server,
+			Name:        name,
+			IsTemporary: true,
 		}
 	case r.Rcode == dns.RcodeSuccess:
 		return nil
