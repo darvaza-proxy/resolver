@@ -26,11 +26,7 @@ type ZeroLookuper struct{}
 
 // Lookup implements Lookuper but always fails
 func (ZeroLookuper) Lookup(_ context.Context, qName string, _ uint16) (*dns.Msg, error) {
-	err := &net.DNSError{
-		Err:  "no answer",
-		Name: qName,
-	}
-	return nil, err
+	return nil, ErrTimeoutMessage(qName, "no answer")
 }
 
 // NewResolver returns a Resolver using the provided Lookuper

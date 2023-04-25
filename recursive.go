@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"net"
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
@@ -59,10 +58,7 @@ func (r MultiLookuper) Lookup(ctx context.Context,
 	err := wg.Err()
 	if err == nil {
 		// none? make one up
-		err = &net.DNSError{
-			Err:  "no answer",
-			Name: qName,
-		}
+		err = ErrTimeoutMessage(qName, "no answer")
 	}
 	return nil, err
 }

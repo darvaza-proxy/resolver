@@ -18,7 +18,7 @@ func successMsg(m *dns.Msg) bool {
 	return false
 }
 
-func validateResp(server string, r *dns.Msg, err error) error {
+func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 	name := nameFromMsg(r, "unknown")
 
 	if e, ok := err.(*net.DNSError); ok {
@@ -30,18 +30,13 @@ func validateResp(server string, r *dns.Msg, err error) error {
 	}
 
 	if err != nil {
-		// TODO: extract information from err.(type)
-		var timeout bool
-		var temporary bool
-		var notfound bool
-
 		return &net.DNSError{
 			Err:         err.Error(),
 			Server:      server,
 			Name:        name,
-			IsTimeout:   timeout,
-			IsTemporary: temporary,
-			IsNotFound:  notfound,
+			IsTimeout:   IsTimeout(err),
+			IsTemporary: IsTemporary(err),
+			IsNotFound:  IsNotFound(err),
 		}
 	}
 
@@ -53,7 +48,10 @@ func validateResp(server string, r *dns.Msg, err error) error {
 		}
 	}
 
-	if r.Rcode != dns.RcodeSuccess {
+	switch r.Rcode {
+	case dns.RcodeSuccess:
+		return nil
+	default:
 		// TODO: decipher Rcode
 		var timeout bool
 		var temporary bool
@@ -68,9 +66,6 @@ func validateResp(server string, r *dns.Msg, err error) error {
 			IsNotFound:  notfound,
 		}
 	}
-
-	// Success
-	return nil
 }
 
 func nameFromMsg(msg *dns.Msg, fallback string) string {
@@ -106,6 +101,18 @@ func sanitiseHost(host string) (string, error) {
 	return "", errors.New("empty host")
 }
 
+func sanitiseHost2(host string) (string, *net.DNSError) {
+	s, err := sanitiseHost(host)
+	if err == nil {
+		return s, nil
+	}
+
+	return "", &net.DNSError{
+		Name: host,
+		Err:  err.Error(),
+	}
+}
+
 func coalesceError(err ...error) error {
 	for _, e := range err {
 		if e != nil {
@@ -117,6 +124,17 @@ func coalesceError(err ...error) error {
 
 func eqIP(ip1, ip2 net.IP) bool {
 	return ip1.Equal(ip2)
+}
+
+// Decanonize removes the trailing . if present, unless
+// it's the root dot
+func Decanonize(qname string) string {
+	if l := len(qname); l > 1 {
+		if qname[l-1] == '.' {
+			return qname[:l-1]
+		}
+	}
+	return qname
 }
 
 // ForEachAnswer calls a function for each answer of the specified type.

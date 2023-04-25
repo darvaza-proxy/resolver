@@ -165,7 +165,7 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, ErrTimeout(qHost, ctx.Err())
 	default:
 	}
 
