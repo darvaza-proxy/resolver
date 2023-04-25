@@ -20,7 +20,10 @@ func TestLookupNetIP(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	l := NewResolver(NewCloudflareLookuper())
+	l, err := NewRootResolver("")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range tests {
 		s, err := l.LookupNetIP(ctx, tc.network, tc.name)
 		switch {
