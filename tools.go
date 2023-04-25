@@ -23,9 +23,8 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 
 	if e, ok := err.(*net.DNSError); ok {
 		// pass through
-		if e.Server == "" {
-			e.Server = server
-		}
+		e.Server = core.Coalesce(e.Server, server)
+		e.Name = core.Coalesce(e.Name, name)
 		return e
 	}
 
