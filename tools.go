@@ -19,7 +19,7 @@ func successMsg(m *dns.Msg) bool {
 }
 
 func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
-	name := nameFromMsg(r, "unknown")
+	name := nameFromMsg(r)
 
 	if e, ok := err.(*net.DNSError); ok {
 		// pass through
@@ -72,7 +72,7 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 	}
 }
 
-func nameFromMsg(msg *dns.Msg, fallback string) string {
+func nameFromMsg(msg *dns.Msg) string {
 	if msg != nil {
 		for _, q := range msg.Question {
 			if len(q.Name) > 0 {
@@ -80,7 +80,7 @@ func nameFromMsg(msg *dns.Msg, fallback string) string {
 			}
 		}
 	}
-	return fallback
+	return ""
 }
 
 func sanitiseNetwork(network string) (string, error) {
