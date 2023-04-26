@@ -37,6 +37,14 @@ func ErrBadResponse() *net.DNSError {
 	}
 }
 
+// ErrNotImplemented reports something isn't implemented
+func ErrNotImplemented(name string) *net.DNSError {
+	return &net.DNSError{
+		Err:  "not implemented",
+		Name: name,
+	}
+}
+
 // ErrTimeout assembles a Timeout() error
 func ErrTimeout(qName string, err error) *net.DNSError {
 	if e, ok := err.(*net.DNSError); ok {
