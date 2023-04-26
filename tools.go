@@ -19,17 +19,17 @@ func successMsg(m *dns.Msg) bool {
 }
 
 func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
-	name := nameFromMsg(r, "unknown")
+	name := nameFromMsg(r)
 
 	if e, ok := err.(*net.DNSError); ok {
 		// pass through
-		if e.Server == "" {
-			e.Server = server
-		}
+		e.Server = core.Coalesce(e.Server, server)
+		e.Name = core.Coalesce(e.Name, name)
 		return e
 	}
 
-	if err != nil {
+	switch {
+	case err != nil:
 		return &net.DNSError{
 			Err:         err.Error(),
 			Server:      server,
@@ -38,18 +38,21 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 			IsTemporary: IsTemporary(err),
 			IsNotFound:  IsNotFound(err),
 		}
-	}
-
-	if r.Truncated {
+	case r == nil:
 		return &net.DNSError{
-			Err:    "dns response was truncated",
-			Server: server,
-			Name:   name,
+			Err:         "invalid response",
+			Server:      server,
+			Name:        name,
+			IsTemporary: true,
 		}
-	}
-
-	switch r.Rcode {
-	case dns.RcodeSuccess:
+	case r.Truncated:
+		return &net.DNSError{
+			Err:         "dns response was truncated",
+			Server:      server,
+			Name:        name,
+			IsTemporary: true,
+		}
+	case r.Rcode == dns.RcodeSuccess:
 		return nil
 	default:
 		// TODO: decipher Rcode
@@ -68,13 +71,15 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 	}
 }
 
-func nameFromMsg(msg *dns.Msg, fallback string) string {
-	for _, q := range msg.Question {
-		if len(q.Name) > 0 {
-			return q.Name
+func nameFromMsg(msg *dns.Msg) string {
+	if msg != nil {
+		for _, q := range msg.Question {
+			if len(q.Name) > 0 {
+				return q.Name
+			}
 		}
 	}
-	return fallback
+	return ""
 }
 
 func sanitiseNetwork(network string) (string, error) {
