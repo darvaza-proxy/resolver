@@ -28,7 +28,7 @@ var roots = map[string]string{
 	"m.root-servers.net": "202.12.27.33",
 }
 
-// RootLookuper does interative lookup using the given root-server
+// RootLookuper does iterative lookup using the given root-server
 // as starting point
 type RootLookuper struct {
 	c     *dns.Client
@@ -68,6 +68,16 @@ func newRootLookuperUnchecked(start string) *RootLookuper {
 		c:     c,
 		Start: start,
 	}
+}
+
+// NewRootResolver creates a LookupResolver using iterative lookup from a given root-server,
+// or random if the argument is ""
+func NewRootResolver(start string) (*LookupResolver, error) {
+	h, err := NewRootLookuper(start)
+	if err != nil {
+		return nil, err
+	}
+	return NewResolver(h), nil
 }
 
 // Lookup performs an iterative lookup
