@@ -207,5 +207,5 @@ func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, error) {
 		}
 	}
 
-	return nil, errBadMessage
+	return nil, ErrBadResponse()
 }

@@ -29,6 +29,14 @@ func ErrTimeoutMessage(qName string, msg string) *net.DNSError {
 	}
 }
 
+// ErrBadResponse reports a bad response from the server
+func ErrBadResponse() *net.DNSError {
+	return &net.DNSError{
+		Err:         "bad response",
+		IsTemporary: true,
+	}
+}
+
 // ErrTimeout assembles a Timeout() error
 func ErrTimeout(qName string, err error) *net.DNSError {
 	if e, ok := err.(*net.DNSError); ok {

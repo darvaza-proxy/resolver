@@ -17,8 +17,6 @@ var (
 
 var (
 	errNotImplemented = errors.New("not implemented")
-	errBadMessage     = errors.New("bad DNS message")
-	errBadType        = errors.New("bad DNS question type")
 )
 
 // A ZeroLookuper is a Lookuper that never finds anything
