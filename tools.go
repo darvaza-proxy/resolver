@@ -12,7 +12,7 @@ import (
 )
 
 func successMsg(m *dns.Msg) bool {
-	if m != nil && m.Rcode == dns.RcodeSuccess && len(m.Answer) > 0 {
+	if m != nil && m.Rcode == dns.RcodeSuccess {
 		return true
 	}
 	return false

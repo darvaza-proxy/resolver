@@ -107,8 +107,10 @@ func (r LookupResolver) goLookupIP(ctx context.Context,
 		return s, nil
 	case e1 != nil:
 		return nil, e1
-	default:
+	case e2 != nil:
 		return nil, e2
+	default:
+		return nil, ErrNotFound(qhost)
 	}
 }
 
@@ -143,8 +145,10 @@ func (r LookupResolver) goLookupIPq(ctx context.Context,
 		return s, nil
 	case e1 != nil:
 		return nil, e1
-	default:
+	case e2 != nil:
 		return nil, e2
+	default:
+		return nil, ErrNotFound(qHost)
 	}
 }
 
@@ -160,6 +164,7 @@ func (r LookupResolver) lookupIPq(ctx context.Context,
 	case e1 != nil:
 		return nil, e1
 	default:
+		e2.Name = qHost
 		return nil, e2
 	}
 }
@@ -186,7 +191,7 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 }
 
 // revive:disable:cognitive-complexity
-func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, error) {
+func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, *net.DNSError) {
 	// revive:enable:cognitive-complexity
 	if successMsg(m) {
 		var s []net.IP
@@ -205,7 +210,9 @@ func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, error) {
 		if len(s) > 0 {
 			return s, nil
 		}
+
+		return nil, ErrNotFound("")
 	}
 
-	return nil, errBadMessage
+	return nil, ErrBadResponse()
 }
