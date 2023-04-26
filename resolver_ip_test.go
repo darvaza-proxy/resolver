@@ -10,10 +10,13 @@ func TestLookupNetIP(t *testing.T) {
 	tests := []struct {
 		name    string
 		network string
+		fail    bool
 	}{
 		{name: "google.com", network: "ip"},
 		{name: "google.com", network: "ip4"},
 		{name: "google.com", network: "ip6"},
+		{name: "ipv6.google.com", network: "ip4", fail: true},
+		{name: "ipv6.google.com", network: "ip6"},
 	}
 
 	ctx := context.Background()
@@ -21,9 +24,18 @@ func TestLookupNetIP(t *testing.T) {
 	for _, tc := range tests {
 		s, err := l.LookupNetIP(ctx, tc.network, tc.name)
 		switch {
-		case err != nil:
+		case err != nil && tc.fail:
+			// failed as expected
+			t.Logf("%q %q: %s", tc.name, tc.network, err)
+		case err != nil && !tc.fail:
+			// not expected to fail
 			t.Errorf("%q %q failed: %s", tc.name, tc.network, err)
+		case err == nil && tc.fail:
+			// expected to fail
+			msg := "expected to fail"
+			t.Fatalf("%q %q %s: %q", tc.name, tc.network, msg, s)
 		case checkTestLookupNetIPResponse(t, tc.name, tc.network, s):
+			// good
 			t.Logf("%q %q: %q", tc.name, tc.network, s)
 		}
 	}
