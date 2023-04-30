@@ -121,7 +121,6 @@ func (r RootLookuper) Iterate(ctx context.Context, name string,
 	}
 	server := startAt
 	name = dns.Fqdn(name)
-
 	msg := r.newMsgFromParts(name, qtype)
 	resp, err := r.Exchange(ctx, msg, server)
 	if err != nil {
@@ -162,7 +161,12 @@ func (r RootLookuper) Iterate(ctx context.Context, name string,
 	case "Answer":
 		return resp, nil
 	case "Cname":
-		return r.Iterate(ctx, resp.Answer[0].(*dns.CNAME).Target, qtype, "")
+		// we asked for something else, noit CNAME so continue with the
+		// same type but the new name
+		name = resp.Answer[0].(*dns.CNAME).Target
+		return r.Iterate(ctx, name, qtype, server)
+	case "NoRecord":
+		return nil, fmt.Errorf("no record")
 	default:
 		return nil, fmt.Errorf("got error %s", rCase)
 	}
@@ -195,7 +199,7 @@ func (RootLookuper) newMsgFromParts(qName string, qType uint16) *dns.Msg {
 	msg := new(dns.Msg)
 	msg.SetQuestion(qName, qType)
 	msg.RecursionDesired = false
-	msg = msg.SetEdns0(65000, false)
+	msg = msg.SetEdns0(2048, false)
 	return msg
 }
 
@@ -222,17 +226,27 @@ func typify(m *dns.Msg) string {
 	return "Nil message"
 }
 
+// revive:disable:cognitive-complexity
 func recType(m *dns.Msg) string {
+	// revive:enable:cognitive-complexity
 	if len(m.Answer) > 0 {
-		if m.Answer[0].Header().Rrtype == dns.TypeCNAME {
-			return "Cname"
+		if m.Question[0].Qtype == m.Answer[0].Header().Rrtype {
+			// we got what we asked for
+			return "Answer"
 		}
-		return "Answer"
+		// we asked for some type but we got back a CNAME so
+		// we need to query further
+		return "Cname"
 	}
-	if len(m.Ns) > 0 {
+
+	if len(m.Ns) > 0 && m.Ns[0].Header().Rrtype == dns.TypeNS {
 		if len(m.Extra) < 2 {
 			return "Namezone"
 		}
+		return "Delegation"
 	}
-	return "Delegation"
+	if m.Authoritative {
+		return "NoRecord"
+	}
+	return "Unknown"
 }

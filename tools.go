@@ -53,6 +53,14 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 			IsTemporary: true,
 		}
 	case r.Rcode == dns.RcodeSuccess:
+		if len(r.Answer) == 0 && r.Authoritative {
+			return &net.DNSError{
+				Err:        "NXDOMAIN",
+				Server:     server,
+				Name:       name,
+				IsNotFound: true,
+			}
+		}
 		return nil
 	default:
 		// TODO: decipher Rcode
