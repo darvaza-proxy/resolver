@@ -3,7 +3,6 @@ package resolver
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/miekg/dns"
@@ -68,13 +67,4 @@ func (LookupResolver) LookupNS(_ context.Context,
 ) ([]*net.NS, error) {
 	//
 	return nil, ErrNotImplemented(name)
-}
-
-// LookupSRV returns the DNS SRV for _service._proto.domain
-func (LookupResolver) LookupSRV(_ context.Context,
-	service, proto, name string,
-) (cname string, addrs []*net.SRV, err error) {
-	//
-	host := fmt.Sprintf("_%s._%s.%s", service, proto, name)
-	return "", nil, ErrNotImplemented(host)
 }
