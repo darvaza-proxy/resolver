@@ -52,15 +52,6 @@ func (LookupResolver) LookupHost(_ context.Context,
 	return nil, ErrNotImplemented(name)
 }
 
-// LookupMX returns the DNS MX records for the given domain name
-// sorted by preference
-func (LookupResolver) LookupMX(_ context.Context,
-	name string,
-) ([]*net.MX, error) {
-	//
-	return nil, ErrNotImplemented(name)
-}
-
 // LookupNS returns the DNS NS records for the given domain name
 func (LookupResolver) LookupNS(_ context.Context,
 	name string,
