@@ -56,7 +56,7 @@ func (r LookupResolver) LookupIP(ctx context.Context,
 		return nil, err
 	}
 
-	host, err = sanitiseHost(host)
+	host, err = sanitiseHost(host, r.strict)
 	if err != nil {
 		return nil, err
 	}

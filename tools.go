@@ -102,9 +102,9 @@ func sanitiseNetwork(network string) (string, error) {
 	}
 }
 
-func sanitiseHost(host string) (string, error) {
+func sanitiseHost(host string, p *idna.Profile) (string, error) {
 	if host != "" {
-		s, err := idna.Display.ToASCII(host)
+		s, err := p.ToASCII(host)
 		if err != nil {
 			return "", core.Wrapf(err, "%q: invalid host", host)
 		}
@@ -114,8 +114,8 @@ func sanitiseHost(host string) (string, error) {
 	return "", errors.New("empty host")
 }
 
-func sanitiseHost2(host string) (string, *net.DNSError) {
-	s, err := sanitiseHost(host)
+func sanitiseHost2(host string, p *idna.Profile) (string, *net.DNSError) {
+	s, err := sanitiseHost(host, p)
 	if err == nil {
 		return s, nil
 	}

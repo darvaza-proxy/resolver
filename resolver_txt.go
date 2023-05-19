@@ -12,7 +12,7 @@ func (r LookupResolver) LookupTXT(ctx context.Context,
 	//
 	var txt []string
 
-	name, err := sanitiseHost(name)
+	name, err := sanitiseHost(name, r.loose)
 	if err != nil {
 		return nil, err
 	}

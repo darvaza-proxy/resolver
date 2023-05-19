@@ -13,7 +13,7 @@ import (
 func (r LookupResolver) LookupCNAME(ctx context.Context,
 	host string) (string, error) {
 	//
-	host, err := sanitiseHost(host)
+	host, err := sanitiseHost(host, r.strict)
 	if err != nil {
 		return "", err
 	}
@@ -104,6 +104,6 @@ func (r LookupResolver) stepLookupCNAME(ctx context.Context, qName string) (stri
 		// No CNAME answer
 		return "", ErrNotFound(qName)
 	default:
-		return sanitiseHost2(cname)
+		return sanitiseHost2(cname, r.strict)
 	}
 }
