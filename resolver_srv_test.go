@@ -14,19 +14,19 @@ func TestLookupSRV(t *testing.T) {
 	}{
 		{
 			"ldap", "tcp", "google.com",
-			"google.com.", "google.com.",
+			"google.com", "google.com",
 		},
 		{
 			"ldap", "tcp", "google.com.",
-			"google.com.", "google.com.",
+			"google.com", "google.com",
 		},
 		{
 			"", "", "_ldap._tcp.google.com",
-			"google.com.", "google.com.",
+			"google.com", "google.com",
 		},
 		{
 			"", "", "_ldap._tcp.google.com.",
-			"google.com.", "google.com.",
+			"google.com", "google.com",
 		},
 	}
 	ctx := context.Background()
