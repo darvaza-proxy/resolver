@@ -23,7 +23,7 @@ func (r LookupResolver) LookupSRV(ctx context.Context,
 	}
 
 	netsrvs, err := r.doLookupSRV(ctx, target)
-	return dns.Fqdn(name), netsrvs, err
+	return Decanonize(name), netsrvs, err
 }
 
 func (r LookupResolver) sanitiseTargetSRV(service, proto, name string) (string, error) {
@@ -73,7 +73,7 @@ func msgToSRV(msg *dns.Msg) ([]*net.SRV, *net.DNSError) {
 
 		ForEachAnswer(msg, func(rr *dns.SRV) {
 			srv := &net.SRV{
-				Target:   rr.Target,
+				Target:   Decanonize(rr.Target),
 				Port:     rr.Port,
 				Priority: rr.Priority,
 				Weight:   rr.Weight,
