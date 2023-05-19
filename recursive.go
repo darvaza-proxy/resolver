@@ -94,7 +94,7 @@ func NewMultiLookuperAddresses(servers ...string) (*MultiLookuper, error) {
 	m := make([]Lookuper, 0, len(servers))
 
 	for _, server := range servers {
-		r, e := NewSingleLookuper(server)
+		r, e := NewSingleLookuper(server, true)
 		if e != nil {
 			err.AppendError(e)
 		} else {
@@ -108,8 +108,9 @@ func NewMultiLookuperAddresses(servers ...string) (*MultiLookuper, error) {
 // SingleLookuper asks a single server for a direct answer
 // to the query preventing repetition
 type SingleLookuper struct {
-	c      *dns.Client
-	remote string
+	c         *dns.Client
+	remote    string
+	recursive bool
 }
 
 // Lookup asks the designed remote to make a DNS Lookup
@@ -119,7 +120,7 @@ func (r SingleLookuper) Lookup(ctx context.Context,
 	m := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Id:               dns.Id(),
-			RecursionDesired: true,
+			RecursionDesired: r.recursive,
 		},
 		Question: []dns.Question{
 			{Name: qName, Qtype: qType, Qclass: dns.ClassINET},
@@ -143,22 +144,23 @@ func (r SingleLookuper) Exchange(ctx context.Context,
 
 // NewSingleLookuper creates a Lookuper that asks one particular
 // server
-func NewSingleLookuper(server string) (*SingleLookuper, error) {
+func NewSingleLookuper(server string, recursive bool) (*SingleLookuper, error) {
 	server, err := AsServerAddress(server)
 	if err != nil {
 		return nil, err
 	}
 
-	return newSingleLookuperUnsafe(server), nil
+	return newSingleLookuperUnsafe(server, recursive), nil
 }
 
-func newSingleLookuperUnsafe(server string) *SingleLookuper {
+func newSingleLookuperUnsafe(server string, recursive bool) *SingleLookuper {
 	c := new(dns.Client)
 	c.SingleInflight = true
 	c.UDPSize = DefaultUDPSize
 
 	return &SingleLookuper{
-		c:      c,
-		remote: server,
+		c:         c,
+		remote:    server,
+		recursive: recursive,
 	}
 }
