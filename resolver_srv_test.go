@@ -41,16 +41,17 @@ func TestLookupSRV(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(srvs) == 0 {
-			t.Error("got no record")
+			t.Error("ERROR: got no record")
 		}
 		if !hasSuffixFold(cname, tt.cname) {
-			t.Errorf("got %s; want %s", cname, tt.cname)
+			t.Errorf("ERROR: got %s; want %s", cname, tt.cname)
 		}
 		for _, srv := range srvs {
 			if !hasSuffixFold(srv.Target, tt.target) {
-				t.Errorf("got %v; want a record containing %s", srv, tt.target)
+				t.Errorf("ERROR: got %v; want a record containing %s", srv, tt.target)
+			} else {
+				t.Logf("got %v; want a record containing %s", srv, tt.target)
 			}
-			t.Logf("got %v; want a record containing %s", srv, tt.target)
 		}
 	}
 }
