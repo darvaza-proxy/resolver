@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/miekg/dns"
+	"golang.org/x/net/idna"
 )
 
 var (
@@ -27,12 +28,18 @@ func NewResolver(h Lookuper) *LookupResolver {
 	if h == nil {
 		return nil
 	}
-	return &LookupResolver{h: h}
+	strict := idna.Lookup
+	loose := idna.New(
+		idna.MapForLookup(),
+		idna.StrictDomainName(false))
+	return &LookupResolver{h: h, strict: strict, loose: loose}
 }
 
 // LookupResolver uses a Lookuper to implement the Resolver inteface
 type LookupResolver struct {
-	h Lookuper
+	h      Lookuper
+	strict *idna.Profile
+	loose  *idna.Profile
 }
 
 // LookupAddr performs a reverse lookup for the given address, returning a
