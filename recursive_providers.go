@@ -2,25 +2,25 @@ package resolver
 
 // NewGoogleLookuper creates a Lookuper asking 8.8.8.8 (Google)
 func NewGoogleLookuper() *SingleLookuper {
-	return newSingleLookuperUnsafe("8.8.8.8:53")
+	return newSingleLookuperUnsafe("8.8.8.8:53", true)
 }
 
 // NewGoogleLookuper2 creates a Lookuper asking 8.8.4.4 (Google)
 func NewGoogleLookuper2() *SingleLookuper {
-	return newSingleLookuperUnsafe("8.8.4.4:53")
+	return newSingleLookuperUnsafe("8.8.4.4:53", true)
 }
 
 // NewCloudflareLookuper creates a Lookuper asking 1.1.1.1 (Cloudflare)
 func NewCloudflareLookuper() *SingleLookuper {
-	return newSingleLookuperUnsafe("1.1.1.1:53")
+	return newSingleLookuperUnsafe("1.1.1.1:53", true)
 }
 
 // NewQuad9Lookuper creates a Lookuper asking 9.9.9.9 (Quad9.net)
 func NewQuad9Lookuper() *SingleLookuper {
-	return newSingleLookuperUnsafe("9.9.9.9:53")
+	return newSingleLookuperUnsafe("9.9.9.9:53", true)
 }
 
 // NewQuad9Lookuper6 creates a Lookuper asking Quad9.net using IPv6
 func NewQuad9Lookuper6() *SingleLookuper {
-	return newSingleLookuperUnsafe("[2620:fe::f3]:53")
+	return newSingleLookuperUnsafe("[2620:fe::f3]:53", true)
 }
