@@ -182,11 +182,13 @@ func AsServerAddress(server string) (string, error) {
 		port = "53"
 	}
 
-	if addr, err := core.ParseAddr(server); err != nil {
+	addr, err := core.ParseAddr(server)
+	switch {
+	case err != nil:
 		return "", err
-	} else if addr.Is6() {
+	case addr.Is6():
 		return fmt.Sprintf("[%s]:%s", host, port), nil
-	} else {
+	default:
 		return host + ":" + port, nil
 	}
 }
