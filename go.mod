@@ -3,15 +3,15 @@ module darvaza.org/resolver
 go 1.19
 
 require (
-	darvaza.org/core v0.9.7
-	github.com/mgechev/revive v1.3.2
+	darvaza.org/core v0.9.9
+	github.com/mgechev/revive v1.3.4
 	github.com/miekg/dns v1.1.56
 	golang.org/x/net v0.15.0
 )
 
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/chavacava/garif v0.0.0-20230227094218-b8c73b2037b8 // indirect
+	github.com/chavacava/garif v0.1.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
