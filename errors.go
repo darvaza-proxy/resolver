@@ -65,22 +65,24 @@ func ErrTimeout(qName string, err error) *net.DNSError {
 
 // IsNotFound checks if the given error represents a NotFound
 func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	} else if e, ok := err.(*net.DNSError); ok {
+	switch e := err.(type) {
+	case *net.DNSError:
 		return e.IsNotFound
-	} else {
+	case nil:
+		return false
+	default:
 		return os.IsNotExist(err)
 	}
 }
 
 // IsTimeout checks if the given error represents a Timeout
 func IsTimeout(err error) bool {
-	if err == nil {
-		return false
-	} else if e, ok := err.(*net.DNSError); ok {
+	switch e := err.(type) {
+	case *net.DNSError:
 		return e.Timeout()
-	} else {
+	case nil:
+		return false
+	default:
 		return os.IsTimeout(err)
 	}
 }
