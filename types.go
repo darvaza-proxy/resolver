@@ -94,3 +94,8 @@ type Resolver interface {
 type Lookuper interface {
 	Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error)
 }
+
+// Exchanger performs a Lookup using a pre-assembled [dns.Msg] question.
+type Exchanger interface {
+	Exchange(ctx context.Context, q *dns.Msg) (*dns.Msg, error)
+}
