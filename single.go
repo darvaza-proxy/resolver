@@ -6,6 +6,11 @@ import (
 	"github.com/miekg/dns"
 )
 
+var (
+	_ Lookuper  = (*SingleLookuper)(nil)
+	_ Exchanger = (*SingleLookuper)(nil)
+)
+
 // SingleLookuper asks a single server for a direct answer
 // to the query preventing repetition
 type SingleLookuper struct {
