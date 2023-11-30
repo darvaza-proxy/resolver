@@ -11,6 +11,7 @@ import (
 )
 
 var _ Lookuper = (*RootLookuper)(nil)
+var _ Exchanger = (*RootLookuper)(nil)
 
 var roots = map[string]string{
 	"a.root-servers.net": "198.41.0.4",
@@ -90,8 +91,15 @@ func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*
 	return r.Iterate(ctx, qName, qType, start+":53")
 }
 
-// Exchange queries a server and validates the response
-func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg, server string) (*dns.Msg, error) {
+// Exchange queries any root server and validates the response
+func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
+	return r.ExchangeWithServer(ctx, m, "")
+}
+
+// ExchangeWithServer queries a server and validates the response
+func (r RootLookuper) ExchangeWithServer(ctx context.Context, m *dns.Msg,
+	server string) (*dns.Msg, error) {
+	//
 	var resp *dns.Msg
 	var err error
 
@@ -122,7 +130,7 @@ func (r RootLookuper) Iterate(ctx context.Context, name string,
 	server := startAt
 	name = dns.Fqdn(name)
 	msg := r.newMsgFromParts(name, qtype)
-	resp, err := r.Exchange(ctx, msg, server)
+	resp, err := r.ExchangeWithServer(ctx, msg, server)
 	if err != nil {
 		return nil, err
 	}
