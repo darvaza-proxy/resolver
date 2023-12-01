@@ -95,7 +95,50 @@ type Lookuper interface {
 	Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error)
 }
 
+// LookuperFunc is a function that implements the [Lookuper] interface
+type LookuperFunc func(context.Context, string, uint16) (*dns.Msg, error)
+
+// Lookup implements the [Lookuper] interface
+func (fn LookuperFunc) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
+	return fn(ctx, qName, qType)
+}
+
+// Exchange implements the [Exchanger] interface using a [Lookuper] function
+func (fn LookuperFunc) Exchange(ctx context.Context, msg *dns.Msg) (*dns.Msg, error) {
+	if msg != nil && len(msg.Question) > 0 {
+		q := msg.Question[0]
+		return fn(ctx, q.Name, q.Qtype)
+	}
+
+	return nil, &net.DNSError{
+		Err: "invalid request",
+	}
+}
+
 // Exchanger performs a Lookup using a pre-assembled [dns.Msg] question.
 type Exchanger interface {
 	Exchange(ctx context.Context, q *dns.Msg) (*dns.Msg, error)
+}
+
+// ExchangerFunc is a function that implements the [Exchanger] interface
+type ExchangerFunc func(context.Context, *dns.Msg) (*dns.Msg, error)
+
+// Exchange implements the [Exchanger] interface
+func (fn ExchangerFunc) Exchange(ctx context.Context, msg *dns.Msg) (*dns.Msg, error) {
+	return fn(ctx, msg)
+}
+
+// Lookup implements the [Lookuper] interface using an [Exchanger] function
+func (fn ExchangerFunc) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
+	msg := &dns.Msg{
+		Question: []dns.Question{
+			{
+				Name:   qName,
+				Qtype:  qType,
+				Qclass: dns.ClassINET,
+			},
+		},
+	}
+
+	return fn(ctx, msg)
 }
