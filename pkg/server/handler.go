@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/miekg/dns"
 
+	"darvaza.org/core"
 	"darvaza.org/resolver"
 )
 
@@ -28,6 +30,8 @@ type Handler struct {
 	Timeout  time.Duration
 	Lookuper resolver.Lookuper
 	Extra    map[uint16]dns.HandlerFunc
+
+	RemoteAddr *core.ContextKey[netip.Addr]
 }
 
 // SetDefaults fills gaps in the [Handler] struct
@@ -93,7 +97,7 @@ func (h *Handler) handleINET(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
 		return
 	}
 
-	ctx, cancel := h.newLookupContext()
+	ctx, cancel := h.newLookupContext(w.RemoteAddr())
 	defer cancel()
 
 	rsp, err := h.Lookuper.Lookup(ctx, q.Name, q.Qtype)
@@ -126,12 +130,19 @@ func (*Handler) handleLookupErr(w dns.ResponseWriter, r *dns.Msg, err error) {
 	w.WriteMsg(m)
 }
 
-func (h *Handler) newLookupContext() (context.Context, context.CancelFunc) {
+func (h *Handler) newLookupContext(remoteAddr net.Addr) (context.Context, context.CancelFunc) {
 	var ctx context.Context
 	// parent
 	ctx = h.Context
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	// RemoteAddr
+	if h.RemoteAddr != nil {
+		addr, ok := core.AddrFromNetIP(remoteAddr)
+		if ok {
+			ctx = h.RemoteAddr.WithValue(ctx, addr)
+		}
 	}
 	// timeout
 	if h.Timeout > 0 {
