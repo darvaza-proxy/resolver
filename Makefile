@@ -10,7 +10,8 @@ GOPATH ?= $(shell $(GO) env GOPATH)
 GOBIN ?= $(GOPATH)/bin
 
 TOOLSDIR := $(CURDIR)/pkg/tools
-TMPDIR ?= .tmp
+TMPDIR ?= $(CURDIR)/.tmp
+OUTDIR ?= $(TMPDIR)
 
 REVIVE ?= $(GOBIN)/revive
 REVIVE_CONF ?= $(TOOLSDIR)/revive.toml
