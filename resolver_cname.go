@@ -6,6 +6,8 @@ import (
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 // LookupCNAME returns the final canonical name after following zero or
@@ -84,7 +86,7 @@ func (r LookupResolver) stepLookupCNAME(ctx context.Context, qName string) (stri
 	// Expired?
 	select {
 	case <-ctx.Done():
-		return "", ErrTimeout(qName, ctx.Err())
+		return "", errors.ErrTimeout(qName, ctx.Err())
 	default:
 	}
 
@@ -102,7 +104,7 @@ func (r LookupResolver) stepLookupCNAME(ctx context.Context, qName string) (stri
 	switch {
 	case cname == "":
 		// No CNAME answer
-		return "", ErrNotFound(qName)
+		return "", errors.ErrNotFound(qName)
 	default:
 		return sanitiseHost2(cname, r.strict)
 	}

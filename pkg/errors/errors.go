@@ -1,4 +1,6 @@
-package resolver
+// Package errors aids error handling for [dns.Msg] and [darvaza.org/resolver]
+// related functions
+package errors
 
 import (
 	"net"

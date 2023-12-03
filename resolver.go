@@ -7,6 +7,8 @@ import (
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/idna"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 var (
@@ -20,7 +22,7 @@ type ZeroLookuper struct{}
 
 // Lookup implements Lookuper but always fails
 func (ZeroLookuper) Lookup(_ context.Context, qName string, _ uint16) (*dns.Msg, error) {
-	return nil, ErrTimeoutMessage(qName, "no answer")
+	return nil, errors.ErrTimeoutMessage(qName, errors.NOANSWER)
 }
 
 // NewResolver returns a Resolver using the provided Lookuper
@@ -48,7 +50,7 @@ func (LookupResolver) LookupAddr(_ context.Context,
 	name string,
 ) ([]string, error) {
 	//
-	return nil, ErrNotImplemented(name)
+	return nil, errors.ErrNotImplemented(name)
 }
 
 // LookupHost returns a slice of the host's addresses
@@ -56,7 +58,7 @@ func (LookupResolver) LookupHost(_ context.Context,
 	name string,
 ) (addrs []string, err error) {
 	//
-	return nil, ErrNotImplemented(name)
+	return nil, errors.ErrNotImplemented(name)
 }
 
 // LookupNS returns the DNS NS records for the given domain name
@@ -64,5 +66,5 @@ func (LookupResolver) LookupNS(_ context.Context,
 	name string,
 ) ([]*net.NS, error) {
 	//
-	return nil, ErrNotImplemented(name)
+	return nil, errors.ErrNotImplemented(name)
 }

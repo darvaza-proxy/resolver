@@ -7,6 +7,8 @@ import (
 	"sort"
 
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 // LookupSRV returns the DNS SRV for _service._proto.domain
@@ -67,7 +69,7 @@ func (r LookupResolver) doLookupSRV(ctx context.Context,
 		e2.Name = host
 		err = e2
 	default:
-		err = ErrNotFound(host)
+		err = errors.ErrNotFound(host)
 	}
 
 	return srv, err
@@ -119,7 +121,7 @@ func msgToSRV(msg *dns.Msg) ([]*net.SRV, *net.DNSError) {
 		}
 	}
 
-	return nil, ErrBadResponse()
+	return nil, errors.ErrBadResponse()
 }
 
 func validateSRV(_ *net.SRV) *net.DNSError {

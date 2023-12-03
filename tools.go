@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -9,6 +8,8 @@ import (
 	"darvaza.org/core"
 	"github.com/miekg/dns"
 	"golang.org/x/net/idna"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 func successMsg(m *dns.Msg) bool {
@@ -34,9 +35,9 @@ func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
 			Err:         err.Error(),
 			Server:      server,
 			Name:        name,
-			IsTimeout:   IsTimeout(err),
-			IsTemporary: IsTemporary(err),
-			IsNotFound:  IsNotFound(err),
+			IsTimeout:   errors.IsTimeout(err),
+			IsTemporary: errors.IsTemporary(err),
+			IsNotFound:  errors.IsNotFound(err),
 		}
 	case r == nil:
 		return &net.DNSError{

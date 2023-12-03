@@ -8,6 +8,8 @@ import (
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 // LookupIPAddr returns the IP addresses of a host
@@ -110,7 +112,7 @@ func (r LookupResolver) goLookupIP(ctx context.Context,
 	case e2 != nil:
 		return nil, e2
 	default:
-		return nil, ErrNotFound(qhost)
+		return nil, errors.ErrNotFound(qhost)
 	}
 }
 
@@ -148,7 +150,7 @@ func (r LookupResolver) goLookupIPq(ctx context.Context,
 	case e2 != nil:
 		return nil, e2
 	default:
-		return nil, ErrNotFound(qHost)
+		return nil, errors.ErrNotFound(qHost)
 	}
 }
 
@@ -176,7 +178,7 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 
 	select {
 	case <-ctx.Done():
-		return nil, ErrTimeout(qHost, ctx.Err())
+		return nil, errors.ErrTimeout(qHost, ctx.Err())
 	default:
 	}
 
@@ -211,8 +213,8 @@ func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, *net.DNSError) {
 			return s, nil
 		}
 
-		return nil, ErrNotFound("")
+		return nil, errors.ErrNotFound("")
 	}
 
-	return nil, ErrBadResponse()
+	return nil, errors.ErrBadResponse()
 }

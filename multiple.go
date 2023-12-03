@@ -5,6 +5,8 @@ import (
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 // MultiLookuper queries multiple Lookupers in parallel
@@ -58,7 +60,7 @@ func (r MultiLookuper) Lookup(ctx context.Context,
 	err := wg.Err()
 	if err == nil {
 		// none? make one up
-		err = ErrTimeoutMessage(qName, "no answer")
+		err = errors.ErrTimeoutMessage(qName, errors.NOANSWER)
 	}
 	return nil, err
 }
