@@ -134,15 +134,6 @@ func sanitiseHost2(host string, p *idna.Profile) (string, *net.DNSError) {
 	}
 }
 
-func coalesceError(err ...error) error {
-	for _, e := range err {
-		if e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
 func eqIP(ip1, ip2 net.IP) bool {
 	return ip1.Equal(ip2)
 }
