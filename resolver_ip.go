@@ -195,26 +195,26 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 // revive:disable:cognitive-complexity
 func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, *net.DNSError) {
 	// revive:enable:cognitive-complexity
-	if successMsg(m) {
-		var s []net.IP
-
-		switch qType {
-		case dns.TypeA:
-			ForEachAnswer(m, func(r *dns.A) {
-				s = append(s, r.A)
-			})
-		case dns.TypeAAAA:
-			ForEachAnswer(m, func(r *dns.AAAA) {
-				s = append(s, r.AAAA)
-			})
-		}
-
-		if len(s) > 0 {
-			return s, nil
-		}
-
-		return nil, errors.ErrNotFound("")
+	if err := errors.MsgAsError(m); err != nil {
+		return nil, err
 	}
 
-	return nil, errors.ErrBadResponse()
+	var s []net.IP
+
+	switch qType {
+	case dns.TypeA:
+		ForEachAnswer(m, func(r *dns.A) {
+			s = append(s, r.A)
+		})
+	case dns.TypeAAAA:
+		ForEachAnswer(m, func(r *dns.AAAA) {
+			s = append(s, r.AAAA)
+		})
+	}
+
+	if len(s) > 0 {
+		return s, nil
+	}
+
+	return nil, errors.ErrNotFound("")
 }

@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 
+	"darvaza.org/resolver/pkg/errors"
 	"github.com/miekg/dns"
 )
 
@@ -41,7 +42,7 @@ func (r SingleLookuper) Exchange(ctx context.Context,
 	msg *dns.Msg) (*dns.Msg, error) {
 	//
 	res, _, err := r.c.ExchangeContext(ctx, msg, r.remote)
-	if werr := validateResp(r.remote, res, err); werr != nil {
+	if werr := errors.ValidateResponse(r.remote, res, err); werr != nil {
 		return nil, werr
 	}
 

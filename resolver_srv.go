@@ -91,37 +91,37 @@ func rrToSRV(rr *dns.SRV) (*net.SRV, *net.DNSError) {
 }
 
 func msgToSRV(msg *dns.Msg) ([]*net.SRV, *net.DNSError) {
-	if successMsg(msg) {
-		var out []*net.SRV
-		var err *net.DNSError
-
-		ForEachAnswer(msg, func(rr *dns.SRV) {
-			srv, e := rrToSRV(rr)
-
-			switch {
-			case e != nil:
-				// bad
-				err = e
-			case srv != nil:
-				// good
-				out = append(out, srv)
-			}
-		})
-
-		switch {
-		case len(out) > 0:
-			// got answers
-			return out, nil
-		case err != nil:
-			// invalid entries
-			return nil, err
-		default:
-			// NXDOMAIN
-			return out, nil
-		}
+	if err := errors.MsgAsError(msg); err != nil {
+		return nil, err
 	}
 
-	return nil, errors.ErrBadResponse()
+	var out []*net.SRV
+	var err *net.DNSError
+
+	ForEachAnswer(msg, func(rr *dns.SRV) {
+		srv, e := rrToSRV(rr)
+
+		switch {
+		case e != nil:
+			// bad
+			err = e
+		case srv != nil:
+			// good
+			out = append(out, srv)
+		}
+	})
+
+	switch {
+	case len(out) > 0:
+		// got answers
+		return out, nil
+	case err != nil:
+		// invalid entries
+		return nil, err
+	default:
+		// NXDOMAIN
+		return out, nil
+	}
 }
 
 func validateSRV(_ *net.SRV) *net.DNSError {

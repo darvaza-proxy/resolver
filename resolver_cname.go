@@ -91,7 +91,7 @@ func (r LookupResolver) stepLookupCNAME(ctx context.Context, qName string) (stri
 	}
 
 	msg, err := r.h.Lookup(ctx, qName, dns.TypeCNAME)
-	if e2 := validateResp("", msg, err); e2 != nil {
+	if e2 := errors.ValidateResponse("", msg, err); e2 != nil {
 		return "", e2
 	}
 
