@@ -3,6 +3,7 @@ module darvaza.org/resolver
 go 1.19
 
 require (
+	darvaza.org/cache v0.2.2
 	darvaza.org/core v0.11.2
 	darvaza.org/slog v0.5.5
 	github.com/mgechev/revive v1.3.4
