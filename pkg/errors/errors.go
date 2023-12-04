@@ -34,7 +34,7 @@ func ErrTimeoutMessage(qName string, msg string) *net.DNSError {
 // ErrBadResponse reports a bad response from the server
 func ErrBadResponse() *net.DNSError {
 	return &net.DNSError{
-		Err:         "bad response",
+		Err:         BADRESPONSE,
 		IsTemporary: true,
 	}
 }
@@ -42,7 +42,7 @@ func ErrBadResponse() *net.DNSError {
 // ErrNotImplemented reports something isn't implemented
 func ErrNotImplemented(name string) *net.DNSError {
 	return &net.DNSError{
-		Err:  "not implemented",
+		Err:  NOTIMPLEMENTED,
 		Name: name,
 	}
 }
