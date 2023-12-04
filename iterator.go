@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 
+	"darvaza.org/cache"
 	"darvaza.org/core"
 	"github.com/miekg/dns"
 
@@ -38,6 +39,9 @@ var roots = map[string]string{
 type RootLookuper struct {
 	c     client.Client
 	Start string
+
+	cache          Exchanger
+	cacheServerKey *core.ContextKey[string]
 }
 
 // NewRootLookuper creates a RootLookuper using the indicated root, or random
@@ -110,8 +114,26 @@ func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg) (*dns.Msg, error
 
 func (r RootLookuper) doExchange(ctx context.Context, m *dns.Msg,
 	server string) (*dns.Msg, error) {
-	// TODO: add cache
+	//
+	if r.cache != nil {
+		ctx = r.cacheServerKey.WithValue(ctx, server)
+		return r.cache.Exchange(ctx, m)
+	}
 
+	return r.doDirectExchange(ctx, m, server)
+}
+
+func (r RootLookuper) doExchangeCache(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
+	server, ok := r.cacheServerKey.Get(ctx)
+	if !ok {
+		panic("unreachable")
+	}
+	return r.doDirectExchange(ctx, m, server)
+}
+
+func (r RootLookuper) doDirectExchange(ctx context.Context,
+	m *dns.Msg, server string) (*dns.Msg, error) {
+	//
 	c := r.c
 	if c == nil {
 		c = client.NewDefaultClient(0)
@@ -123,6 +145,18 @@ func (r RootLookuper) doExchange(ctx context.Context, m *dns.Msg,
 	}
 
 	return resp, nil
+}
+
+// SetCache creates a [cache.Cache] on the provided [cache.Store] for dns Answers
+func (r *RootLookuper) SetCache(s cache.Store, name string, maxRRs uint) error {
+	c, err := NewCachedExchanger(ExchangerFunc(r.doExchangeCache), s, name, maxRRs)
+	if err != nil {
+		return err
+	}
+
+	r.cache = c
+	r.cacheServerKey = core.NewContextKey[string]("dns.server")
+	return nil
 }
 
 // Iterate is an iterative lookup implementation
