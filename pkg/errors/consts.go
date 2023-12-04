@@ -12,6 +12,9 @@ const (
 	// TRUNCATED is the text on [net.DNSError].Err if the server returned a
 	// truncated response
 	TRUNCATED = "dns response was truncated"
+	// BADREQUEST is the text on [net.DNSError].Err if the client request
+	// is invalid
+	BADREQUEST = "invalid dns request"
 	// BADRESPONSE is the text on [net.DNSError].Err if the server response
 	// in invalid
 	BADRESPONSE = "invalid dns response from server"

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/netip"
 
+	"darvaza.org/resolver/pkg/errors"
 	"github.com/miekg/dns"
 )
 
@@ -110,9 +111,7 @@ func (fn LookuperFunc) Exchange(ctx context.Context, msg *dns.Msg) (*dns.Msg, er
 		return fn(ctx, q.Name, q.Qtype)
 	}
 
-	return nil, &net.DNSError{
-		Err: "invalid request",
-	}
+	return nil, errors.ErrBadRequest()
 }
 
 // Exchanger performs a Lookup using a pre-assembled [dns.Msg] question.
