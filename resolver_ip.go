@@ -8,6 +8,8 @@ import (
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 // LookupIPAddr returns the IP addresses of a host
@@ -110,7 +112,7 @@ func (r LookupResolver) goLookupIP(ctx context.Context,
 	case e2 != nil:
 		return nil, e2
 	default:
-		return nil, ErrNotFound(qhost)
+		return nil, errors.ErrNotFound(qhost)
 	}
 }
 
@@ -148,7 +150,7 @@ func (r LookupResolver) goLookupIPq(ctx context.Context,
 	case e2 != nil:
 		return nil, e2
 	default:
-		return nil, ErrNotFound(qHost)
+		return nil, errors.ErrNotFound(qHost)
 	}
 }
 
@@ -176,7 +178,7 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 
 	select {
 	case <-ctx.Done():
-		return nil, ErrTimeout(qHost, ctx.Err())
+		return nil, errors.ErrTimeout(qHost, ctx.Err())
 	default:
 	}
 
@@ -193,26 +195,26 @@ func (r LookupResolver) lookupIPqCNAME(ctx context.Context,
 // revive:disable:cognitive-complexity
 func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, *net.DNSError) {
 	// revive:enable:cognitive-complexity
-	if successMsg(m) {
-		var s []net.IP
-
-		switch qType {
-		case dns.TypeA:
-			ForEachAnswer(m, func(r *dns.A) {
-				s = append(s, r.A)
-			})
-		case dns.TypeAAAA:
-			ForEachAnswer(m, func(r *dns.AAAA) {
-				s = append(s, r.AAAA)
-			})
-		}
-
-		if len(s) > 0 {
-			return s, nil
-		}
-
-		return nil, ErrNotFound("")
+	if err := errors.MsgAsError(m); err != nil {
+		return nil, err
 	}
 
-	return nil, ErrBadResponse()
+	var s []net.IP
+
+	switch qType {
+	case dns.TypeA:
+		ForEachAnswer(m, func(r *dns.A) {
+			s = append(s, r.A)
+		})
+	case dns.TypeAAAA:
+		ForEachAnswer(m, func(r *dns.AAAA) {
+			s = append(s, r.AAAA)
+		})
+	}
+
+	if len(s) > 0 {
+		return s, nil
+	}
+
+	return nil, errors.ErrNotFound("")
 }

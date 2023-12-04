@@ -8,6 +8,8 @@ import (
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
 )
 
 var _ Lookuper = (*RootLookuper)(nil)
@@ -109,7 +111,7 @@ func (r RootLookuper) ExchangeWithServer(ctx context.Context, m *dns.Msg,
 		resp, err = dns.ExchangeContext(ctx, m, server)
 	}
 
-	if werr := validateResp(server, resp, err); werr != nil {
+	if werr := errors.ValidateResponse(server, resp, err); werr != nil {
 		return nil, werr
 	}
 

@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -9,93 +8,9 @@ import (
 	"darvaza.org/core"
 	"github.com/miekg/dns"
 	"golang.org/x/net/idna"
+
+	"darvaza.org/resolver/pkg/errors"
 )
-
-func successMsg(m *dns.Msg) bool {
-	if m != nil && m.Rcode == dns.RcodeSuccess {
-		return true
-	}
-	return false
-}
-
-func validateResp(server string, r *dns.Msg, err error) *net.DNSError {
-	name := nameFromMsg(r)
-
-	if e, ok := err.(*net.DNSError); ok {
-		// pass through
-		e.Server = core.Coalesce(e.Server, server)
-		e.Name = core.Coalesce(e.Name, name)
-		return e
-	}
-
-	switch {
-	case err != nil:
-		return &net.DNSError{
-			Err:         err.Error(),
-			Server:      server,
-			Name:        name,
-			IsTimeout:   IsTimeout(err),
-			IsTemporary: IsTemporary(err),
-			IsNotFound:  IsNotFound(err),
-		}
-	case r == nil:
-		return &net.DNSError{
-			Err:         "invalid response",
-			Server:      server,
-			Name:        name,
-			IsTemporary: true,
-		}
-	case r.Truncated:
-		return &net.DNSError{
-			Err:         "dns response was truncated",
-			Server:      server,
-			Name:        name,
-			IsTemporary: true,
-		}
-	case r.Rcode == dns.RcodeSuccess:
-		if len(r.Answer) == 0 && r.Authoritative {
-			return &net.DNSError{
-				Err:        "NOTYPE",
-				Server:     server,
-				Name:       name,
-				IsNotFound: true,
-			}
-		}
-		return nil
-	case r.Rcode == dns.RcodeNameError:
-		return &net.DNSError{
-			Err:        "NXDOMAIN",
-			Server:     server,
-			Name:       name,
-			IsNotFound: true,
-		}
-	default:
-		// TODO: decipher Rcode
-		var timeout bool
-		var temporary bool
-		var notfound bool
-
-		return &net.DNSError{
-			Err:         dns.RcodeToString[r.Rcode],
-			Server:      server,
-			Name:        name,
-			IsTimeout:   timeout,
-			IsTemporary: temporary,
-			IsNotFound:  notfound,
-		}
-	}
-}
-
-func nameFromMsg(msg *dns.Msg) string {
-	if msg != nil {
-		for _, q := range msg.Question {
-			if len(q.Name) > 0 {
-				return q.Name
-			}
-		}
-	}
-	return ""
-}
 
 func sanitiseNetwork(network string) (string, error) {
 	s := strings.ToLower(network)
@@ -131,15 +46,6 @@ func sanitiseHost2(host string, p *idna.Profile) (string, *net.DNSError) {
 		Name: host,
 		Err:  err.Error(),
 	}
-}
-
-func coalesceError(err ...error) error {
-	for _, e := range err {
-		if e != nil {
-			return e
-		}
-	}
-	return nil
 }
 
 func eqIP(ip1, ip2 net.IP) bool {

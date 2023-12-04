@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 
+	"darvaza.org/resolver/pkg/errors"
 	"github.com/miekg/dns"
 )
 
@@ -14,10 +15,7 @@ func (r LookupResolver) LookupMX(ctx context.Context,
 	var netmxs []*net.MX
 	name = dns.Fqdn(name)
 	msg, err := r.h.Lookup(ctx, dns.CanonicalName(name), dns.TypeMX)
-	if err != nil {
-		return nil, err
-	}
-	if err2 := validateResp("", msg, err); err2 != nil {
+	if err2 := errors.ValidateResponse("", msg, err); err2 != nil {
 		return nil, err2
 	}
 
