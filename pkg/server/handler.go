@@ -10,6 +10,7 @@ import (
 
 	"darvaza.org/core"
 	"darvaza.org/resolver"
+	"darvaza.org/resolver/pkg/errors"
 )
 
 const (
@@ -103,7 +104,9 @@ func (h *Handler) handleINET(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
 	rsp, err := h.Lookuper.Lookup(ctx, q.Name, q.Qtype)
 	switch {
 	case err != nil:
-		h.handleLookupErr(w, r, err)
+		// TODO: log error
+		rsp := errors.ErrorAsMsg(r, err)
+		w.WriteMsg(rsp)
 	case rsp == nil:
 		// nil answer from resolver
 		handleRcodeError(w, r, dns.RcodeServerFailure)
@@ -113,21 +116,6 @@ func (h *Handler) handleINET(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
 		rsp.SetRcode(r, dns.RcodeSuccess)
 		w.WriteMsg(rsp)
 	}
-}
-
-func (*Handler) handleLookupErr(w dns.ResponseWriter, r *dns.Msg, err error) {
-	// TODO: log error
-	m := newResponse(r)
-	if n, ok := err.(*net.DNSError); ok {
-		if n.Err == "NXDOMAIN" {
-			m.SetRcode(r, dns.RcodeNameError)
-			w.WriteMsg(m)
-			return
-		}
-	}
-	// NOTYPE and possible others arrive here
-	m.SetRcode(r, dns.RcodeSuccess)
-	w.WriteMsg(m)
 }
 
 func (h *Handler) newLookupContext(remoteAddr net.Addr) (context.Context, context.CancelFunc) {
