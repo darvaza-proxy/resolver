@@ -52,6 +52,34 @@ func eqIP(ip1, ip2 net.IP) bool {
 	return ip1.Equal(ip2)
 }
 
+func msgQuestion(m *dns.Msg) *dns.Question {
+	if m != nil && len(m.Question) > 0 {
+		return &m.Question[0]
+	}
+	return nil
+}
+
+func msgQName(m *dns.Msg) string {
+	if q := msgQuestion(m); q != nil {
+		return q.Name
+	}
+	return ""
+}
+
+func msgQType(m *dns.Msg) uint16 {
+	if q := msgQuestion(m); q != nil {
+		return q.Qtype
+	}
+	return 0
+}
+
+func msgQClass(m *dns.Msg) uint16 {
+	if q := msgQuestion(m); q != nil {
+		return q.Qclass
+	}
+	return 0
+}
+
 // Decanonize removes the trailing . if present, unless
 // it's the root dot
 func Decanonize(qname string) string {
