@@ -104,6 +104,21 @@ func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
 	}
 }
 
+// GetFirstAnswer returns the first answer for a specified type
+func GetFirstAnswer[T dns.RR](msg *dns.Msg) T {
+	var zero T
+
+	if msg != nil {
+		for _, ans := range msg.Answer {
+			if v, ok := ans.(T); ok {
+				return v
+			}
+		}
+	}
+
+	return zero
+}
+
 // AsServerAddress validates and optionally appends :53 port if
 // it wasn't specified already
 func AsServerAddress(server string) (string, error) {
