@@ -170,7 +170,7 @@ func (r RootLookuper) doIterate(ctx context.Context, req *dns.Msg,
 		return nil, err
 	}
 
-	rCase := typify(resp)
+	rCase := r.typify(resp)
 	switch rCase {
 	case "Delegation":
 		servers := r.getNextServer(resp.Extra, dns.TypeA)
@@ -241,10 +241,6 @@ func (RootLookuper) getNextServer(answers []dns.RR, aType uint16) []string {
 	return out
 }
 
-func isIP4(s string) bool {
-	return net.ParseIP(s) != nil
-}
-
 func (r RootLookuper) hostFromRoot(ctx context.Context, h string) (string, error) {
 	askRoot := pickRoot()
 	if askRoot == "" {
@@ -291,11 +287,11 @@ func pickRoot() string {
 	return ""
 }
 
-func typify(m *dns.Msg) string {
+func (r RootLookuper) typify(m *dns.Msg) string {
 	if m != nil {
 		switch m.Rcode {
 		case dns.RcodeSuccess:
-			return recType(m)
+			return r.recType(m)
 		case dns.RcodeRefused:
 			return "Refused"
 		case dns.RcodeFormatError:
@@ -308,7 +304,7 @@ func typify(m *dns.Msg) string {
 }
 
 // revive:disable:cognitive-complexity
-func recType(m *dns.Msg) string {
+func (RootLookuper) recType(m *dns.Msg) string {
 	// revive:enable:cognitive-complexity
 	if len(m.Answer) > 0 {
 		if m.Question[0].Qtype == m.Answer[0].Header().Rrtype {
