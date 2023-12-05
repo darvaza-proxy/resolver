@@ -279,7 +279,7 @@ func (RootLookuper) newMsgFromParts(qName string, qClass uint16, qType uint16) *
 		},
 	}
 
-	msg = msg.SetEdns0(2048, false)
+	msg = msg.SetEdns0(dns.DefaultMsgSize, false)
 	return msg
 }
 
