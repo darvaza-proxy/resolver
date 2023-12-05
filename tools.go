@@ -92,7 +92,7 @@ func Decanonize(qname string) string {
 }
 
 // ForEachAnswer calls a function for each answer of the specified type.
-func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
+func ForEachAnswer[T dns.RR](msg *dns.Msg, fn func(v T)) {
 	if fn == nil || msg == nil {
 		return
 	}
