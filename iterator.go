@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
@@ -85,25 +84,21 @@ func NewRootResolver(start string) (*LookupResolver, error) {
 
 // Lookup performs an iterative lookup
 func (r RootLookuper) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
-	start := r.Start
-	if start == "" {
-		start = pickRoot()
-	}
-
-	return r.Iterate(ctx, qName, qType, start+":53")
+	return r.Iterate(ctx, qName, qType, "")
 }
 
 // Exchange queries any root server and validates the response
 func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
-	return r.ExchangeWithServer(ctx, m, "")
+	return r.IterateMsg(ctx, m, "")
 }
 
-// ExchangeWithServer queries a server and validates the response
-func (r RootLookuper) ExchangeWithServer(ctx context.Context, m *dns.Msg,
+func (r RootLookuper) doExchange(ctx context.Context, m *dns.Msg,
 	server string) (*dns.Msg, error) {
 	//
 	var resp *dns.Msg
 	var err error
+
+	// TODO: add cache
 
 	if r.c != nil {
 		resp, _, err = r.c.ExchangeContext(ctx, m, server)
@@ -119,62 +114,81 @@ func (r RootLookuper) ExchangeWithServer(ctx context.Context, m *dns.Msg,
 }
 
 // Iterate is an iterative lookup implementation
-// revive:disable:cognitive-complexity
-// revive:disable:cyclomatic
 func (r RootLookuper) Iterate(ctx context.Context, name string,
 	qtype uint16, startAt string,
 ) (*dns.Msg, error) {
-	// revive:enable:cognitive-complexity
-	// revive:enable:cyclomatic
-	if startAt == "" {
-		startAt = pickRoot() + ":53"
+	if ctx == nil {
+		return nil, errors.ErrBadRequest()
 	}
-	server := startAt
-	name = dns.Fqdn(name)
-	msg := r.newMsgFromParts(name, qtype)
-	resp, err := r.ExchangeWithServer(ctx, msg, server)
+
+	req := r.newMsgFromParts(dns.Fqdn(name), dns.ClassINET, qtype)
+	return r.unsafeIterateMsg(ctx, req, startAt)
+}
+
+// IterateMsg is an iterative exchange implementation
+func (r RootLookuper) IterateMsg(ctx context.Context, req *dns.Msg,
+	startAt string,
+) (*dns.Msg, error) {
+	if ctx == nil || req == nil {
+		return nil, errors.ErrBadRequest()
+	}
+
+	if q := msgQuestion(req); q != nil {
+		// sanitize request
+		req = r.newMsgFromParts(q.Name, q.Qclass, q.Qtype)
+		return r.unsafeIterateMsg(ctx, req, startAt)
+	}
+
+	// nothing to answer
+	msg := new(dns.Msg)
+	msg.SetReply(req)
+	return msg, nil
+}
+
+func (r RootLookuper) unsafeIterateMsg(ctx context.Context, req *dns.Msg,
+	startAt string,
+) (*dns.Msg, error) {
+	var server string
+
+	switch {
+	case startAt != "":
+		server = startAt
+	case r.Start != "":
+		server = r.Start + ":53"
+	default:
+		server = pickRoot() + ":53"
+	}
+
+	return r.doIterate(ctx, req, server)
+}
+
+func (r RootLookuper) doIterate(ctx context.Context, req *dns.Msg,
+	server string,
+) (*dns.Msg, error) {
+	resp, err := r.doExchange(ctx, req, server)
 	if err != nil {
 		return nil, err
 	}
 
-	nextServer := make([]string, 0)
-	rCase := typify(resp)
+	rCase := r.typify(resp)
 	switch rCase {
-	case "Delegation", "Namezone":
-		if rCase == "Delegation" {
-			for _, ref := range resp.Extra {
-				if ref.Header().Rrtype == dns.TypeA {
-					nextServer = append(nextServer, ref.(*dns.A).A.String())
-				}
-			}
-		} else {
-			for _, ns := range resp.Ns {
-				if ns.Header().Rrtype == dns.TypeNS {
-					nextServer = append(nextServer, strings.TrimSuffix(ns.(*dns.NS).Ns, "."))
-				}
-			}
-		}
-		nns, ok := core.SliceRandom(nextServer)
-		if !ok {
-			return nil, fmt.Errorf("cannot extract nextServer from list")
-		}
-		server, ok = roots[nns]
-		if !ok {
-			server = nns
-			if !isIP4(server) {
-				if server, err = r.hostFromRoot(ctx, nns); err != nil {
-					return nil, err
-				}
-			}
-		}
-		return r.Iterate(ctx, name, qtype, server+":53")
+	case "Delegation":
+		servers := r.getNextServer(resp.Extra, dns.TypeA)
+		return r.doIterateNext(ctx, req, servers)
+	case "Namezone":
+		servers := r.getNextServer(resp.Ns, dns.TypeNS)
+		return r.doIterateNext(ctx, req, servers)
 	case "Answer":
 		return resp, nil
 	case "Cname":
 		// we asked for something else, noit CNAME so continue with the
 		// same type but the new name
-		name = resp.Answer[0].(*dns.CNAME).Target
-		return r.Iterate(ctx, name, qtype, server)
+		if rr := GetFirstAnswer[*dns.CNAME](resp); rr != nil {
+			name := rr.Target
+			qType := msgQType(req)
+			return r.Iterate(ctx, name, qType, server)
+		}
+		return nil, errors.ErrBadResponse()
 	case "NoRecord":
 		return nil, fmt.Errorf("no record")
 	default:
@@ -182,8 +196,49 @@ func (r RootLookuper) Iterate(ctx context.Context, name string,
 	}
 }
 
-func isIP4(s string) bool {
-	return net.ParseIP(s) != nil
+func (r RootLookuper) doIterateNext(ctx context.Context, req *dns.Msg, nextServer []string,
+) (*dns.Msg, error) {
+	var err error
+
+	nns, ok := core.SliceRandom(nextServer)
+	if !ok {
+		return nil, fmt.Errorf("cannot extract nextServer from list")
+	}
+
+	server, ok := roots[nns]
+	if !ok {
+		server = nns
+		if !isIP4(server) {
+			if server, err = r.hostFromRoot(ctx, nns); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return r.doIterate(ctx, req, server+":53")
+}
+
+// revive:disable:cognitive-complexity
+func (RootLookuper) getNextServer(answers []dns.RR, aType uint16) []string {
+	// revive:enable:cognitive-complexity
+	var out []string
+
+	switch aType {
+	case dns.TypeA:
+		for _, ref := range answers {
+			if rr, ok := ref.(*dns.A); ok {
+				out = append(out, rr.A.String())
+			}
+		}
+	case dns.TypeNS:
+		for _, ref := range answers {
+			if rr, ok := ref.(*dns.NS); ok {
+				out = append(out, Decanonize(rr.Ns))
+			}
+		}
+	}
+
+	return out
 }
 
 func (r RootLookuper) hostFromRoot(ctx context.Context, h string) (string, error) {
@@ -205,26 +260,38 @@ func (r RootLookuper) hostFromRoot(ctx context.Context, h string) (string, error
 	return result, nil
 }
 
-func (RootLookuper) newMsgFromParts(qName string, qType uint16) *dns.Msg {
-	msg := new(dns.Msg)
-	msg.SetQuestion(qName, qType)
-	msg.RecursionDesired = false
-	msg = msg.SetEdns0(2048, false)
+func (RootLookuper) newMsgFromParts(qName string, qClass uint16, qType uint16) *dns.Msg {
+	msg := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:               dns.Id(),
+			RecursionDesired: false,
+		},
+		Question: []dns.Question{
+			{
+				Name:   qName,
+				Qclass: qClass,
+				Qtype:  qType,
+			},
+		},
+	}
+
+	msg = msg.SetEdns0(dns.DefaultMsgSize, false)
 	return msg
 }
 
 func pickRoot() string {
+	// randomized by range internally
 	for _, x := range roots {
 		return x
 	}
 	return ""
 }
 
-func typify(m *dns.Msg) string {
+func (r RootLookuper) typify(m *dns.Msg) string {
 	if m != nil {
 		switch m.Rcode {
 		case dns.RcodeSuccess:
-			return recType(m)
+			return r.recType(m)
 		case dns.RcodeRefused:
 			return "Refused"
 		case dns.RcodeFormatError:
@@ -237,7 +304,7 @@ func typify(m *dns.Msg) string {
 }
 
 // revive:disable:cognitive-complexity
-func recType(m *dns.Msg) string {
+func (RootLookuper) recType(m *dns.Msg) string {
 	// revive:enable:cognitive-complexity
 	if len(m.Answer) > 0 {
 		if m.Question[0].Qtype == m.Answer[0].Header().Rrtype {

@@ -52,6 +52,42 @@ func eqIP(ip1, ip2 net.IP) bool {
 	return ip1.Equal(ip2)
 }
 
+func isIP4(s string) bool {
+	addr, err := core.ParseAddr(s)
+	if err != nil || !addr.IsValid() {
+		return false
+	}
+	return addr.Is4()
+}
+
+func msgQuestion(m *dns.Msg) *dns.Question {
+	if m != nil && len(m.Question) > 0 {
+		return &m.Question[0]
+	}
+	return nil
+}
+
+func msgQName(m *dns.Msg) string {
+	if q := msgQuestion(m); q != nil {
+		return q.Name
+	}
+	return ""
+}
+
+func msgQType(m *dns.Msg) uint16 {
+	if q := msgQuestion(m); q != nil {
+		return q.Qtype
+	}
+	return 0
+}
+
+func msgQClass(m *dns.Msg) uint16 {
+	if q := msgQuestion(m); q != nil {
+		return q.Qclass
+	}
+	return 0
+}
+
 // Decanonize removes the trailing . if present, unless
 // it's the root dot
 func Decanonize(qname string) string {
@@ -64,7 +100,7 @@ func Decanonize(qname string) string {
 }
 
 // ForEachAnswer calls a function for each answer of the specified type.
-func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
+func ForEachAnswer[T dns.RR](msg *dns.Msg, fn func(v T)) {
 	if fn == nil || msg == nil {
 		return
 	}
@@ -74,6 +110,21 @@ func ForEachAnswer[T any](msg *dns.Msg, fn func(v T)) {
 			fn(v)
 		}
 	}
+}
+
+// GetFirstAnswer returns the first answer for a specified type
+func GetFirstAnswer[T dns.RR](msg *dns.Msg) T {
+	var zero T
+
+	if msg != nil {
+		for _, ans := range msg.Answer {
+			if v, ok := ans.(T); ok {
+				return v
+			}
+		}
+	}
+
+	return zero
 }
 
 // AsServerAddress validates and optionally appends :53 port if
