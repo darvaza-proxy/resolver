@@ -9,6 +9,7 @@ import (
 	"darvaza.org/core"
 	"github.com/miekg/dns"
 
+	"darvaza.org/resolver/pkg/client"
 	"darvaza.org/resolver/pkg/errors"
 )
 
@@ -34,7 +35,7 @@ var roots = map[string]string{
 // RootLookuper does iterative lookup using the given root-server
 // as starting point
 type RootLookuper struct {
-	c     *dns.Client
+	c     client.Client
 	Start string
 }
 
@@ -64,11 +65,10 @@ func NewRootLookuper(start string) (*RootLookuper, error) {
 
 func newRootLookuperUnchecked(start string) *RootLookuper {
 	c := new(dns.Client)
-	c.SingleInflight = true
 	c.UDPSize = DefaultUDPSize
 
 	return &RootLookuper{
-		c:     c,
+		c:     client.NewSingleFlight(c, 0),
 		Start: start,
 	}
 }

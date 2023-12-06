@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 
+	"darvaza.org/resolver/pkg/client"
 	"darvaza.org/resolver/pkg/errors"
 	"github.com/miekg/dns"
 )
@@ -15,7 +16,7 @@ var (
 // SingleLookuper asks a single server for a direct answer
 // to the query preventing repetition
 type SingleLookuper struct {
-	c         *dns.Client
+	c         client.Client
 	remote    string
 	recursive bool
 }
@@ -62,11 +63,10 @@ func NewSingleLookuper(server string, recursive bool) (*SingleLookuper, error) {
 
 func newSingleLookuperUnsafe(server string, recursive bool) *SingleLookuper {
 	c := new(dns.Client)
-	c.SingleInflight = true
 	c.UDPSize = DefaultUDPSize
 
 	return &SingleLookuper{
-		c:         c,
+		c:         client.NewSingleFlight(c, 0),
 		remote:    server,
 		recursive: recursive,
 	}
