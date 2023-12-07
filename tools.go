@@ -139,7 +139,7 @@ func AsServerAddress(server string) (string, error) {
 		port = "53"
 	}
 
-	addr, err := core.ParseAddr(server)
+	addr, err := core.ParseAddr(host)
 	switch {
 	case err != nil:
 		return "", err
