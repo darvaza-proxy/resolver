@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"darvaza.org/core"
 	"github.com/miekg/dns"
@@ -253,8 +254,6 @@ func (r RootLookuper) handleSuccessDelegation(ctx context.Context,
 }
 
 func (r RootLookuper) getNextServer(ctx context.Context, servers []string) (string, error) {
-	var err error
-
 	nns, ok := core.SliceRandom(servers)
 	if !ok {
 		return "", fmt.Errorf("cannot extract nextServer from list")
@@ -263,8 +262,9 @@ func (r RootLookuper) getNextServer(ctx context.Context, servers []string) (stri
 	server, ok := roots[nns]
 	if !ok {
 		server = nns
-		if !isIP4(server) {
-			server, err = r.hostFromRoot(ctx, nns)
+
+		if _, err := netip.ParseAddr(server); err != nil {
+			server, err = r.hostFromRoot(ctx, server)
 			if err != nil {
 				return "", err
 			}
@@ -277,9 +277,16 @@ func (r RootLookuper) getNextServer(ctx context.Context, servers []string) (stri
 func (RootLookuper) getA(answers []dns.RR) []string {
 	var out []string
 
+	aaaa := client.HasIPv6Support()
+
 	for _, ref := range answers {
-		if rr, ok := ref.(*dns.A); ok {
+		switch rr := ref.(type) {
+		case *dns.A:
 			out = append(out, rr.A.String())
+		case *dns.AAAA:
+			if aaaa {
+				out = append(out, rr.AAAA.String())
+			}
 		}
 	}
 

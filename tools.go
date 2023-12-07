@@ -52,14 +52,6 @@ func eqIP(ip1, ip2 net.IP) bool {
 	return ip1.Equal(ip2)
 }
 
-func isIP4(s string) bool {
-	addr, err := core.ParseAddr(s)
-	if err != nil || !addr.IsValid() {
-		return false
-	}
-	return addr.Is4()
-}
-
 func msgQuestion(m *dns.Msg) *dns.Question {
 	if m != nil && len(m.Question) > 0 {
 		return &m.Question[0]
