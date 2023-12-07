@@ -94,20 +94,16 @@ func (r RootLookuper) Exchange(ctx context.Context, m *dns.Msg) (*dns.Msg, error
 
 func (r RootLookuper) doExchange(ctx context.Context, m *dns.Msg,
 	server string) (*dns.Msg, error) {
-	//
-	var resp *dns.Msg
-	var err error
-
 	// TODO: add cache
 
-	if r.c != nil {
-		resp, _, err = r.c.ExchangeContext(ctx, m, server)
-	} else {
-		resp, err = dns.ExchangeContext(ctx, m, server)
+	c := r.c
+	if c == nil {
+		c = client.NewDefaultClient()
 	}
 
-	if werr := errors.ValidateResponse(server, resp, err); werr != nil {
-		return nil, werr
+	resp, _, err := c.ExchangeContext(ctx, m, server)
+	if err := errors.ValidateResponse(server, resp, err); err != nil {
+		return nil, err
 	}
 
 	return resp, nil
