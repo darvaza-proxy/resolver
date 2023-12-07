@@ -150,9 +150,9 @@ func (r RootLookuper) unsafeIterateMsg(ctx context.Context, req *dns.Msg,
 	case startAt != "":
 		server = startAt
 	case r.Start != "":
-		server = r.Start + ":53"
+		server = r.Start
 	default:
-		server = pickRoot() + ":53"
+		server = pickRoot()
 	}
 
 	return r.doIterate(ctx, req, server)
@@ -161,57 +161,81 @@ func (r RootLookuper) unsafeIterateMsg(ctx context.Context, req *dns.Msg,
 func (r RootLookuper) doIterate(ctx context.Context, req *dns.Msg,
 	server string,
 ) (*dns.Msg, error) {
+	//
+	for {
+		var err error
+		var resp *dns.Msg
+
+		server, resp, err = r.doIteratePass(ctx, req, server)
+		switch {
+		case err != nil:
+			return nil, err
+		case resp != nil:
+			return resp, nil
+		}
+	}
+}
+
+func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
+	server string,
+) (string, *dns.Msg, error) {
+	//
+	server, err := AsServerAddress(server)
+	if err != nil {
+		return "", nil, err
+	}
+
 	resp, err := r.doExchange(ctx, req, server)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	rCase := r.typify(resp)
 	switch rCase {
 	case "Delegation":
-		servers := r.getA(resp.Extra)
-		return r.doIterateNext(ctx, req, servers)
+		server, err = r.getNextServer(ctx, r.getA(resp.Extra))
+		return server, nil, err
 	case "Namezone":
-		servers := r.getNS(resp.Ns)
-		return r.doIterateNext(ctx, req, servers)
+		server, err = r.getNextServer(ctx, r.getNS(resp.Ns))
+		return server, nil, err
 	case "Answer":
-		return resp, nil
+		return "", resp, nil
 	case "Cname":
 		// we asked for something else, noit CNAME so continue with the
 		// same type but the new name
 		if rr := GetFirstAnswer[*dns.CNAME](resp); rr != nil {
-			name := rr.Target
-			qType := msgQType(req)
-			return r.Iterate(ctx, name, qType, server)
+			req.Question[0].Name = dns.Fqdn(rr.Target)
+			return server, nil, nil
 		}
-		return nil, errors.ErrBadResponse()
+
+		return "", nil, errors.ErrBadResponse()
 	case "NoRecord":
-		return nil, fmt.Errorf("no record")
+		return "", nil, fmt.Errorf("no record")
 	default:
-		return nil, fmt.Errorf("got error %s", rCase)
+		return "", nil, fmt.Errorf("got error %s", rCase)
 	}
 }
 
-func (r RootLookuper) doIterateNext(ctx context.Context, req *dns.Msg, nextServer []string,
-) (*dns.Msg, error) {
+func (r RootLookuper) getNextServer(ctx context.Context, servers []string) (string, error) {
 	var err error
 
-	nns, ok := core.SliceRandom(nextServer)
+	nns, ok := core.SliceRandom(servers)
 	if !ok {
-		return nil, fmt.Errorf("cannot extract nextServer from list")
+		return "", fmt.Errorf("cannot extract nextServer from list")
 	}
 
 	server, ok := roots[nns]
 	if !ok {
 		server = nns
 		if !isIP4(server) {
-			if server, err = r.hostFromRoot(ctx, nns); err != nil {
-				return nil, err
+			server, err = r.hostFromRoot(ctx, nns)
+			if err != nil {
+				return "", err
 			}
 		}
 	}
 
-	return r.doIterate(ctx, req, server+":53")
+	return server, nil
 }
 
 func (RootLookuper) getA(answers []dns.RR) []string {
