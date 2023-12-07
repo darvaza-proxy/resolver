@@ -169,10 +169,10 @@ func (r RootLookuper) doIterate(ctx context.Context, req *dns.Msg,
 	rCase := r.typify(resp)
 	switch rCase {
 	case "Delegation":
-		servers := r.getNextServer(resp.Extra, dns.TypeA)
+		servers := r.getA(resp.Extra)
 		return r.doIterateNext(ctx, req, servers)
 	case "Namezone":
-		servers := r.getNextServer(resp.Ns, dns.TypeNS)
+		servers := r.getNS(resp.Ns)
 		return r.doIterateNext(ctx, req, servers)
 	case "Answer":
 		return resp, nil
@@ -214,23 +214,24 @@ func (r RootLookuper) doIterateNext(ctx context.Context, req *dns.Msg, nextServe
 	return r.doIterate(ctx, req, server+":53")
 }
 
-// revive:disable:cognitive-complexity
-func (RootLookuper) getNextServer(answers []dns.RR, aType uint16) []string {
-	// revive:enable:cognitive-complexity
+func (RootLookuper) getA(answers []dns.RR) []string {
 	var out []string
 
-	switch aType {
-	case dns.TypeA:
-		for _, ref := range answers {
-			if rr, ok := ref.(*dns.A); ok {
-				out = append(out, rr.A.String())
-			}
+	for _, ref := range answers {
+		if rr, ok := ref.(*dns.A); ok {
+			out = append(out, rr.A.String())
 		}
-	case dns.TypeNS:
-		for _, ref := range answers {
-			if rr, ok := ref.(*dns.NS); ok {
-				out = append(out, Decanonize(rr.Ns))
-			}
+	}
+
+	return out
+}
+
+func (RootLookuper) getNS(answers []dns.RR) []string {
+	var out []string
+
+	for _, ref := range answers {
+		if rr, ok := ref.(*dns.NS); ok {
+			out = append(out, Decanonize(rr.Ns))
 		}
 	}
 
