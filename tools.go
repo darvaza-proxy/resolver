@@ -127,6 +127,17 @@ func GetFirstAnswer[T dns.RR](msg *dns.Msg) T {
 	return zero
 }
 
+// HasAnswerType checks if a [dns.Msg] contains answers of the
+// specified type.
+func HasAnswerType(msg *dns.Msg, qType uint16) bool {
+	for _, rr := range msg.Answer {
+		if rr.Header().Rrtype == qType {
+			return true
+		}
+	}
+	return false
+}
+
 // AsServerAddress validates and optionally appends :53 port if
 // it wasn't specified already
 func AsServerAddress(server string) (string, error) {
