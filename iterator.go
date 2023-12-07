@@ -238,22 +238,20 @@ func (RootLookuper) getNS(answers []dns.RR) []string {
 	return out
 }
 
+func (r RootLookuper) getOneA(answers []dns.RR) (string, bool) {
+	return core.SliceRandom(r.getA(answers))
+}
+
 func (r RootLookuper) hostFromRoot(ctx context.Context, h string) (string, error) {
-	askRoot := pickRoot()
-	if askRoot == "" {
-		return "", fmt.Errorf("could not pick root")
-	}
-	askRoot = askRoot + ":53"
-	msg, err := r.Iterate(ctx, h, dns.TypeA, askRoot)
+	msg, err := r.Iterate(ctx, h, dns.TypeA, "")
 	if err != nil {
 		return "", err
 	}
 
-	ans, ok := core.SliceRandom(msg.Answer)
+	result, ok := r.getOneA(msg.Answer)
 	if !ok {
 		return "", fmt.Errorf("cannot select random from answer")
 	}
-	result := ans.(*dns.A).A.String()
 	return result, nil
 }
 
