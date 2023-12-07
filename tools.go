@@ -138,6 +138,17 @@ func HasAnswerType(msg *dns.Msg, qType uint16) bool {
 	return false
 }
 
+// HasNsType checks if a [dns.Msg] contains Ns entries of the
+// specified type
+func HasNsType(msg *dns.Msg, qType uint16) bool {
+	for _, rr := range msg.Ns {
+		if rr.Header().Rrtype == qType {
+			return true
+		}
+	}
+	return false
+}
+
 // AsServerAddress validates and optionally appends :53 port if
 // it wasn't specified already
 func AsServerAddress(server string) (string, error) {
