@@ -41,33 +41,48 @@ type RootLookuper struct {
 // NewRootLookuper creates a RootLookuper using the indicated root, or random
 // if the argument is ""
 func NewRootLookuper(start string) (*RootLookuper, error) {
+	return safeNewRootLookuper(start, nil)
+}
+
+// NewRootLookuperWithClient creates a RootLookuper using the indicated root, or
+// random if the argument is "", and uses the given [client.Client] to connect.
+func NewRootLookuperWithClient(start string, c client.Client) (*RootLookuper, error) {
+	return safeNewRootLookuper(start, c)
+}
+
+func safeNewRootLookuper(start string, c client.Client) (*RootLookuper, error) {
+	if c == nil {
+		// use default singleflight client
+		c1 := new(dns.Client)
+		c1.UDPSize = DefaultUDPSize
+		c = client.NewSingleFlight(c1, 0)
+	}
+
 	if start == "" {
-		return newRootLookuperUnchecked(pickRoot()), nil
+		return newRootLookuperUnchecked(pickRoot(), c), nil
 	}
 
 	for _, addr := range roots {
 		if start == addr {
-			return newRootLookuperUnchecked(addr), nil
+			return newRootLookuperUnchecked(addr, c), nil
 		}
 	}
 
 	if addr, ok := roots[start]; ok {
-		return newRootLookuperUnchecked(addr), nil
+		return newRootLookuperUnchecked(addr, c), nil
 	}
 
 	err := &net.DNSError{
 		Err:  "invalid root server",
 		Name: start,
 	}
+
 	return nil, err
 }
 
-func newRootLookuperUnchecked(start string) *RootLookuper {
-	c := new(dns.Client)
-	c.UDPSize = DefaultUDPSize
-
+func newRootLookuperUnchecked(start string, c client.Client) *RootLookuper {
 	return &RootLookuper{
-		c:     client.NewSingleFlight(c, 0),
+		c:     c,
 		Start: start,
 	}
 }
