@@ -53,21 +53,29 @@ func (r SingleLookuper) Exchange(ctx context.Context,
 // NewSingleLookuper creates a Lookuper that asks one particular
 // server
 func NewSingleLookuper(server string, recursive bool) (*SingleLookuper, error) {
+	return NewSingleLookuperWithClient(server, recursive, nil)
+}
+
+// NewSingleLookuperWithClient creates a lookuper that asks one particular
+// server using the provided DNS client
+func NewSingleLookuperWithClient(server string, recursive bool,
+	c client.Client) (*SingleLookuper, error) {
+	//
 	server, err := AsServerAddress(server)
 	if err != nil {
 		return nil, err
 	}
 
-	return newSingleLookuperUnsafe(server, recursive), nil
-}
+	if c == nil {
+		c1 := new(dns.Client)
+		c1.UDPSize = DefaultUDPSize
+		c = client.NewSingleFlight(c1, 0)
+	}
 
-func newSingleLookuperUnsafe(server string, recursive bool) *SingleLookuper {
-	c := new(dns.Client)
-	c.UDPSize = DefaultUDPSize
-
-	return &SingleLookuper{
-		c:         client.NewSingleFlight(c, 0),
+	h := &SingleLookuper{
+		c:         c,
 		remote:    server,
 		recursive: recursive,
 	}
+	return h, nil
 }
