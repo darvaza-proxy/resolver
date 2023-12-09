@@ -10,11 +10,21 @@ import (
 
 var (
 	_ Client = (*dns.Client)(nil)
+	_ Client = (ExchangeFunc)(nil)
 )
 
 // A Client makes a request to a server
 type Client interface {
 	ExchangeContext(context.Context, *dns.Msg, string) (*dns.Msg, time.Duration, error)
+}
+
+// ExchangeFunc is a function that implements the [Client] interface
+type ExchangeFunc func(context.Context, *dns.Msg, string) (*dns.Msg, time.Duration, error)
+
+// ExchangeContext implements the [Client] interface
+func (fn ExchangeFunc) ExchangeContext(ctx context.Context, req *dns.Msg,
+	server string) (*dns.Msg, time.Duration, error) {
+	return fn(ctx, req, server)
 }
 
 // NewDefaultClient allocate a default [dns.Client] in the same
