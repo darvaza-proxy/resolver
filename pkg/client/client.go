@@ -19,6 +19,6 @@ type Client interface {
 
 // NewDefaultClient allocate a default [dns.Client] in the same
 // manner as dns.ExchangeContext(), plain UDP.
-func NewDefaultClient() Client {
+func NewDefaultClient() *dns.Client {
 	return &dns.Client{Net: "udp"}
 }
