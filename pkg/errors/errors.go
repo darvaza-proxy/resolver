@@ -20,6 +20,16 @@ func ErrNotFound(qName string) *net.DNSError {
 	}
 }
 
+// ErrTypeNotFound assembles a net.DNSError indicating
+// the name exists but not the requested qType/qClass.
+func ErrTypeNotFound(qName string) *net.DNSError {
+	return &net.DNSError{
+		Err:        NODATA,
+		Name:       qName,
+		IsNotFound: true,
+	}
+}
+
 // ErrTimeoutMessage is a variant of ErrTimeout that uses
 // a given message instead of wrapping an error
 func ErrTimeoutMessage(qName string, msg string) *net.DNSError {
