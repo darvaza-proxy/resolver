@@ -99,7 +99,7 @@ func (sfc *SingleFlight) doExchangeResult(ctx context.Context, req *dns.Msg,
 		// it doesn't matter if this happens multiple times
 		// and will only happens if the user didn't use
 		// NewSingleFlight()
-		sfc.c = NewDefaultClient()
+		sfc.c = NewDefaultClient(0)
 	}
 
 	res, rtt, err := sfc.c.ExchangeContext(ctx, req, server)
@@ -161,7 +161,7 @@ func (d sfResult) Export(req *dns.Msg, err error, shared bool) (*dns.Msg, time.D
 // if exp is zero, [DefaultSingleFlightExpiration] will be used
 func NewSingleFlight(c Client, exp time.Duration) *SingleFlight {
 	if c == nil {
-		c = NewDefaultClient()
+		c = NewDefaultClient(0)
 	}
 
 	if exp == 0 {

@@ -9,11 +9,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-const (
-	// DefaultUDPSize is the UDPSize we use on our dns.Client
-	DefaultUDPSize = 1024
-)
-
 // A DialerFunc is a function that establishes TCP or UDP connection
 type DialerFunc func(ctx context.Context, network, address string) (net.Conn, error)
 

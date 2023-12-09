@@ -67,8 +67,7 @@ func NewSingleLookuperWithClient(server string, recursive bool,
 	}
 
 	if c == nil {
-		c1 := new(dns.Client)
-		c1.UDPSize = DefaultUDPSize
+		c1 := client.NewDefaultClient(0)
 		c = client.NewSingleFlight(c1, 0)
 	}
 

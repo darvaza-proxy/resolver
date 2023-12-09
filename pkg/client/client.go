@@ -19,6 +19,12 @@ type Client interface {
 
 // NewDefaultClient allocate a default [dns.Client] in the same
 // manner as dns.ExchangeContext(), plain UDP.
-func NewDefaultClient() *dns.Client {
-	return &dns.Client{Net: "udp"}
+func NewDefaultClient(udpSize uint16) *dns.Client {
+	if udpSize == 0 {
+		udpSize = dns.DefaultMsgSize
+	}
+
+	c := &dns.Client{Net: "udp"}
+	c.UDPSize = udpSize
+	return c
 }

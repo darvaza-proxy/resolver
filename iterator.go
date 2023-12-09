@@ -53,8 +53,7 @@ func NewRootLookuperWithClient(start string, c client.Client) (*RootLookuper, er
 func safeNewRootLookuper(start string, c client.Client) (*RootLookuper, error) {
 	if c == nil {
 		// use default singleflight client
-		c1 := new(dns.Client)
-		c1.UDPSize = DefaultUDPSize
+		c1 := client.NewDefaultClient(0)
 		c = client.NewSingleFlight(c1, 0)
 	}
 
