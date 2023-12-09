@@ -38,11 +38,7 @@ func MsgAsError(r *dns.Msg) *net.DNSError {
 			return nil
 		case dns.RcodeNameError:
 			// Unknown name
-			return &net.DNSError{
-				Err:        NXDOMAIN,
-				Name:       name,
-				IsNotFound: true,
-			}
+			return ErrNotFound(name)
 		default:
 			// TODO: decipher Rcode further
 			var timeout bool
