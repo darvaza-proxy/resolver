@@ -112,7 +112,7 @@ func (r RootLookuper) doExchange(ctx context.Context, m *dns.Msg,
 
 	c := r.c
 	if c == nil {
-		c = client.NewDefaultClient()
+		c = client.NewDefaultClient(0)
 	}
 
 	resp, _, err := c.ExchangeContext(ctx, m, server)
