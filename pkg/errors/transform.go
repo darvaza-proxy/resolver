@@ -30,23 +30,15 @@ func MsgAsError(r *dns.Msg) *net.DNSError {
 	default:
 		switch r.Rcode {
 		case dns.RcodeSuccess:
-			// Success could mean NOTYPE if it's authoritative
+			// Success could mean NODATA if it's authoritative
 			if len(r.Answer) == 0 && r.Authoritative {
-				return &net.DNSError{
-					Err:        NOTYPE,
-					Name:       name,
-					IsNotFound: true,
-				}
+				return ErrTypeNotFound(name)
 			}
 
 			return nil
 		case dns.RcodeNameError:
 			// Unknown name
-			return &net.DNSError{
-				Err:        NXDOMAIN,
-				Name:       name,
-				IsNotFound: true,
-			}
+			return ErrNotFound(name)
 		default:
 			// TODO: decipher Rcode further
 			var timeout bool
@@ -88,7 +80,7 @@ func ErrorAsMsg(req *dns.Msg, err error) *dns.Msg {
 func dnsErrorAsMsg(req *dns.Msg, err *net.DNSError) *dns.Msg {
 	switch err.Err {
 	case NOANSWER:
-	case NOTYPE:
+	case NODATA:
 		resp := newResponseSuccess(req)
 		resp.Authoritative = true
 		return resp

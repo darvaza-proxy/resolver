@@ -10,11 +10,21 @@ import (
 	"darvaza.org/core"
 )
 
-// ErrNotFound assembles an net.DNSError error with
-// IsNotFound set
+// ErrNotFound assembles a net.DNSError indicating
+// the asked name doesn't exist.
 func ErrNotFound(qName string) *net.DNSError {
 	return &net.DNSError{
-		Err:        "entry not found",
+		Err:        NXDOMAIN,
+		Name:       qName,
+		IsNotFound: true,
+	}
+}
+
+// ErrTypeNotFound assembles a net.DNSError indicating
+// the name exists but not the requested qType/qClass.
+func ErrTypeNotFound(qName string) *net.DNSError {
+	return &net.DNSError{
+		Err:        NODATA,
 		Name:       qName,
 		IsNotFound: true,
 	}
