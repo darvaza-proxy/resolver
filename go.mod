@@ -3,8 +3,10 @@ module darvaza.org/resolver
 go 1.19
 
 require (
-	darvaza.org/core v0.10.0
+	darvaza.org/core v0.10.1
+	darvaza.org/darvaza/shared v0.5.11
 	darvaza.org/slog v0.5.4
+	darvaza.org/slog/handlers/discard v0.4.6
 	github.com/mgechev/revive v1.3.4
 	github.com/miekg/dns v1.1.57
 	golang.org/x/net v0.19.0
@@ -24,7 +26,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
