@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	_ Client = (*SingleFlight)(nil)
+	_ Client    = (*SingleFlight)(nil)
+	_ Unwrapper = (*SingleFlight)(nil)
 )
 
 const (
@@ -110,6 +111,15 @@ func (sfc *SingleFlight) doExchangeResult(ctx context.Context, req *dns.Msg,
 	}
 
 	return data, err
+}
+
+// Unwrap returns the underlying [*dns.Client]
+func (sfc *SingleFlight) Unwrap() *dns.Client {
+	if sfc != nil {
+		return Unwrap(sfc.c)
+	}
+
+	return nil
 }
 
 // RequestKey serializes a DNS request to act as temporary cache key
