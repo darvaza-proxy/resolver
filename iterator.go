@@ -200,34 +200,56 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 	}
 
 	resp, err := r.doExchange(ctx, req, server)
-	if err != nil {
+	switch {
+	case err != nil:
 		return "", nil, err
-	}
-
-	rCase := r.typify(resp)
-	switch rCase {
-	case "Delegation":
-		server, err = r.getNextServer(ctx, r.getA(resp.Extra))
-		return server, nil, err
-	case "Namezone":
-		server, err = r.getNextServer(ctx, r.getNS(resp.Ns))
-		return server, nil, err
-	case "Answer":
-		return "", resp, nil
-	case "Cname":
-		// we asked for something else, noit CNAME so continue with the
-		// same type but the new name
-		if rr := GetFirstAnswer[*dns.CNAME](resp); rr != nil {
-			req.Question[0].Name = dns.Fqdn(rr.Target)
-			return server, nil, nil
-		}
-
+	case resp == nil:
 		return "", nil, errors.ErrBadResponse()
-	case "NoRecord":
-		return "", nil, fmt.Errorf("no record")
+	case resp.Rcode == dns.RcodeSuccess:
+		switch {
+		case len(resp.Answer) > 0:
+			return r.handleSuccessAnswer(ctx, req, resp, server)
+		case HasNsType(resp, dns.TypeNS):
+			return r.handleSuccessDelegation(ctx, req, resp, server)
+		default:
+			return "", nil, errors.ErrBadResponse()
+		}
 	default:
-		return "", nil, fmt.Errorf("got error %s", rCase)
+		return "", nil, errors.ErrBadResponse()
 	}
+}
+
+func (RootLookuper) handleSuccessAnswer(_ context.Context,
+	req *dns.Msg, resp *dns.Msg, server string,
+) (string, *dns.Msg, error) {
+	if HasAnswerType(resp, msgQType(req)) {
+		// we got what we asked for
+		return "", resp, nil
+	}
+
+	// we asked for some type but we got back a CNAME so
+	// we need to query further with the same type but the
+	// new name.
+	if rr := GetFirstAnswer[*dns.CNAME](resp); rr != nil {
+		req.Question[0].Name = dns.Fqdn(rr.Target)
+		return server, nil, nil
+	}
+
+	return "", nil, errors.ErrBadResponse()
+}
+
+func (r RootLookuper) handleSuccessDelegation(ctx context.Context,
+	_ *dns.Msg, resp *dns.Msg, _ string,
+) (string, *dns.Msg, error) {
+	if len(resp.Extra) < 2 {
+		// name zone
+		server, err := r.getNextServer(ctx, r.getNS(resp.Ns))
+		return server, nil, err
+	}
+
+	// Delegation
+	server, err := r.getNextServer(ctx, r.getA(resp.Extra))
+	return server, nil, err
 }
 
 func (r RootLookuper) getNextServer(ctx context.Context, servers []string) (string, error) {
@@ -318,45 +340,4 @@ func pickRoot() string {
 		return x
 	}
 	return ""
-}
-
-func (r RootLookuper) typify(m *dns.Msg) string {
-	if m != nil {
-		switch m.Rcode {
-		case dns.RcodeSuccess:
-			return r.recType(m)
-		case dns.RcodeRefused:
-			return "Refused"
-		case dns.RcodeFormatError:
-			return "NoEDNS"
-		default:
-			return "Unknown"
-		}
-	}
-	return "Nil message"
-}
-
-// revive:disable:cognitive-complexity
-func (RootLookuper) recType(m *dns.Msg) string {
-	// revive:enable:cognitive-complexity
-	if len(m.Answer) > 0 {
-		if m.Question[0].Qtype == m.Answer[0].Header().Rrtype {
-			// we got what we asked for
-			return "Answer"
-		}
-		// we asked for some type but we got back a CNAME so
-		// we need to query further
-		return "Cname"
-	}
-
-	if len(m.Ns) > 0 && m.Ns[0].Header().Rrtype == dns.TypeNS {
-		if len(m.Extra) < 2 {
-			return "Namezone"
-		}
-		return "Delegation"
-	}
-	if m.Authoritative {
-		return "NoRecord"
-	}
-	return "Unknown"
 }
