@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 	"github.com/miekg/dns"
 )
 
@@ -19,7 +20,7 @@ func (r LookupResolver) LookupMX(ctx context.Context,
 		return nil, err2
 	}
 
-	ForEachAnswer(msg, func(rr *dns.MX) {
+	exdns.ForEachAnswer(msg, func(rr *dns.MX) {
 		z := makeNetMX(rr)
 		if z != nil {
 			netmxs = append(netmxs, z)

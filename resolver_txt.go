@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 
+	"darvaza.org/resolver/pkg/exdns"
 	"github.com/miekg/dns"
 )
 
@@ -19,7 +20,7 @@ func (r LookupResolver) LookupTXT(ctx context.Context,
 
 	msg, err := r.h.Lookup(ctx, dns.CanonicalName(name), dns.TypeTXT)
 
-	ForEachAnswer(msg, func(rr *dns.TXT) {
+	exdns.ForEachAnswer(msg, func(rr *dns.TXT) {
 		if txt == nil {
 			txt = rr.Txt
 		} else {

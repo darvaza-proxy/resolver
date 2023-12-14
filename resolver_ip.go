@@ -10,6 +10,7 @@ import (
 	"github.com/miekg/dns"
 
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 // LookupIPAddr returns the IP addresses of a host
@@ -203,11 +204,11 @@ func msgToIPq(m *dns.Msg, qType uint16) ([]net.IP, *net.DNSError) {
 
 	switch qType {
 	case dns.TypeA:
-		ForEachAnswer(m, func(r *dns.A) {
+		exdns.ForEachAnswer(m, func(r *dns.A) {
 			s = append(s, r.A)
 		})
 	case dns.TypeAAAA:
-		ForEachAnswer(m, func(r *dns.AAAA) {
+		exdns.ForEachAnswer(m, func(r *dns.AAAA) {
 			s = append(s, r.AAAA)
 		})
 	}

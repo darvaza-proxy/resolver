@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 func TestLookupCNAME(t *testing.T) {
@@ -34,7 +36,7 @@ func TestLookupCNAME(t *testing.T) {
 }
 
 func cnameInList(value string, options ...string) bool {
-	value = Decanonize(strings.ToLower(value))
+	value = exdns.Decanonize(strings.ToLower(value))
 	for _, opt := range options {
 		if value == opt {
 			return true
