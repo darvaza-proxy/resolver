@@ -59,23 +59,9 @@ func msgQuestion(m *dns.Msg) *dns.Question {
 	return nil
 }
 
-func msgQName(m *dns.Msg) string {
-	if q := msgQuestion(m); q != nil {
-		return q.Name
-	}
-	return ""
-}
-
 func msgQType(m *dns.Msg) uint16 {
 	if q := msgQuestion(m); q != nil {
 		return q.Qtype
-	}
-	return 0
-}
-
-func msgQClass(m *dns.Msg) uint16 {
-	if q := msgQuestion(m); q != nil {
-		return q.Qclass
 	}
 	return 0
 }
