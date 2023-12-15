@@ -75,8 +75,8 @@ func checkTestLookupNetIPResponse(t *testing.T,
 func validateTestLookupNetIPResult(network string,
 	invalid, ip4, ip6 bool) (string, bool) {
 	// revive:enable:cyclomatic
-	want4 := network == "ip" || network == "ip4"
-	want6 := network == "ip" || network == "ip6"
+	want4 := network == netIP4or6 || network == netIP4only
+	want6 := network == netIP4or6 || network == netIP6only
 
 	switch {
 	case invalid:

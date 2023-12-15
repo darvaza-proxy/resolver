@@ -31,7 +31,7 @@ func (r LookupResolver) LookupCNAME(ctx context.Context,
 
 	// No CNAME, but does it have addresses?
 	var addrs []net.IP
-	addrs, err = r.doLookupIP(ctx, "ip", qName, false)
+	addrs, err = r.doLookupIP(ctx, netIP4or6, qName, false)
 	switch {
 	case err != nil:
 		return "", err

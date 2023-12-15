@@ -43,7 +43,7 @@ func (r MultiLookuper) Lookup(ctx context.Context,
 
 	// if all workers finished unsuccessfully, free the waiter
 	go func() {
-		wg.Wait()
+		_ = wg.Wait()
 		close(ch)
 	}()
 

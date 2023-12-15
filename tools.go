@@ -12,12 +12,18 @@ import (
 	"darvaza.org/resolver/pkg/errors"
 )
 
+const (
+	netIP4or6  = "ip"
+	netIP4only = "ip4"
+	netIP6only = "ip6"
+)
+
 func sanitiseNetwork(network string) (string, error) {
 	s := strings.ToLower(network)
 	switch s {
 	case "":
-		return "ip", nil
-	case "ip", "ip4", "ip6":
+		return netIP4or6, nil
+	case netIP4or6, netIP4only, netIP6only:
 		return s, nil
 	default:
 		return "", fmt.Errorf("%q: invalid network", network)
@@ -59,23 +65,9 @@ func msgQuestion(m *dns.Msg) *dns.Question {
 	return nil
 }
 
-func msgQName(m *dns.Msg) string {
-	if q := msgQuestion(m); q != nil {
-		return q.Name
-	}
-	return ""
-}
-
 func msgQType(m *dns.Msg) uint16 {
 	if q := msgQuestion(m); q != nil {
 		return q.Qtype
-	}
-	return 0
-}
-
-func msgQClass(m *dns.Msg) uint16 {
-	if q := msgQuestion(m); q != nil {
-		return q.Qclass
 	}
 	return 0
 }

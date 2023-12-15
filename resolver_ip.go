@@ -17,7 +17,7 @@ import (
 func (r LookupResolver) LookupIPAddr(ctx context.Context,
 	host string) ([]net.IPAddr, error) {
 	//
-	addrs, err := r.LookupIP(ctx, "ip", host)
+	addrs, err := r.LookupIP(ctx, netIP4or6, host)
 	out := make([]net.IPAddr, 0, len(addrs))
 
 	for _, ip := range addrs {
@@ -76,12 +76,12 @@ func (r LookupResolver) doLookupIP(ctx context.Context,
 	qhost := dns.CanonicalName(host)
 
 	switch network {
-	case "ip":
-		return r.goLookupIP(ctx, qhost, cname)
-	case "ip4":
+	case netIP6only:
+		return r.goLookupIPq(ctx, qhost, dns.TypeAAAA, cname)
+	case netIP4only:
 		return r.goLookupIPq(ctx, qhost, dns.TypeA, cname)
 	default:
-		return r.goLookupIPq(ctx, qhost, dns.TypeAAAA, cname)
+		return r.goLookupIP(ctx, qhost, cname)
 	}
 }
 
