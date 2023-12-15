@@ -1,7 +1,15 @@
 # Darvaza DNS Resolver
 
-[![Go Reference](https://pkg.go.dev/badge/darvaza.org/resolver.svg)](https://pkg.go.dev/darvaza.org/resolver)
-[![Codebeat Score](https://codebeat.co/badges/20a9893f-b3df-4a45-a1a8-f54a656b0447)](https://codebeat.co/projects/github-com-darvaza-proxy-resolver-master)
+[![Go Reference][godoc-badge]][godoc]
+[![Go Report Card][goreport-badge]][goreport]
+[![Codebeat Score][codebeat-badge]][codebeat]
+
+[codebeat]: https://codebeat.co/projects/github-com-darvaza-proxy-resolver-main
+[codebeat-badge]: https://codebeat.co/badges/20a9893f-b3df-4a45-a1a8-f54a656b0447
+[godoc]: https://pkg.go.dev/darvaza.org/resolver
+[godoc-badge]: https://pkg.go.dev/badge/darvaza.org/resolver.svg
+[goreport]: https://goreportcard.com/report/darvaza.org/resolver
+[goreport-badge]: https://goreportcard.com/badge/darvaza.org/resolver
 
 [dns.Client]: https://pkg.go.dev/github.com/miekg/dns#Client
 [dns.Handler]: https://pkg.go.dev/github.com/miekg/dns#Handler
