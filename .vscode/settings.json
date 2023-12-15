@@ -4,6 +4,8 @@
         "Lookuper",
         "miekg",
         "pflag",
-        "Unwrapper"
+        "tableflip",
+        "Unwrapper",
+        "Upgrader"
     ]
 }
