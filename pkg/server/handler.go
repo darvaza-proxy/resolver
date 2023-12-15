@@ -33,6 +33,8 @@ type Handler struct {
 	Extra    map[uint16]dns.HandlerFunc
 
 	RemoteAddr *core.ContextKey[netip.Addr]
+
+	OnError func(dns.ResponseWriter, *dns.Msg, error)
 }
 
 // SetDefaults fills gaps in the [Handler] struct
@@ -48,10 +50,21 @@ func (h *Handler) SetDefaults() {
 	}
 }
 
+func (h *Handler) onError(rw dns.ResponseWriter, req *dns.Msg, err error) {
+	if h != nil && h.OnError != nil && err != nil {
+		h.OnError(rw, req, err)
+	}
+}
+
 // ServeDNS handles requests passed by [dns.ServeMUX]
 func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	var err error
+
 	if len(r.Question) != 1 {
-		handleNotImplemented(w, r)
+		err = handleNotImplemented(w, r)
+		if err != nil {
+			h.onError(w, r, err)
+		}
 		return
 	}
 
@@ -60,42 +73,42 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	switch q.Qclass {
 	case dns.ClassCHAOS:
 		// call CHAOS class handler
-		h.handleCHAOS(w, r, q)
+		err = h.handleCHAOS(w, r, q)
 	case dns.ClassINET:
 		// call INET class handler
-		h.handleINET(w, r, q)
+		err = h.handleINET(w, r, q)
 	default:
 		// check other classes
-		h.handleExtra(w, r, q)
+		err = h.handleExtra(w, r, q)
+	}
+
+	if err != nil {
+		h.onError(w, r, err)
 	}
 }
 
-func (h *Handler) handleCHAOS(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
+func (h *Handler) handleCHAOS(w dns.ResponseWriter, r *dns.Msg, q dns.Question) error {
 	switch q.Name {
 	case "authors.bind.":
 		if s := h.Authors; s != "" {
-			handleTXTResponse(w, r, s)
-			return
+			return handleTXTResponse(w, r, s)
 		}
 	case "version.bind.", "version.server.":
 		if s := h.Version; s != "" {
-			handleTXTResponse(w, r, s)
-			return
+			return handleTXTResponse(w, r, s)
 		}
 	case "hostname.bind.", "id.server.":
 		if s := h.Hostname; s != "" {
-			handleTXTResponse(w, r, s)
-			return
+			return handleTXTResponse(w, r, s)
 		}
 	}
 
-	handleNotImplemented(w, r)
+	return handleNotImplemented(w, r)
 }
 
-func (h *Handler) handleINET(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
+func (h *Handler) handleINET(w dns.ResponseWriter, r *dns.Msg, q dns.Question) error {
 	if h.Lookuper == nil {
-		handleNotImplemented(w, r)
-		return
+		return handleNotImplemented(w, r)
 	}
 
 	ctx, cancel := h.newLookupContext(w.RemoteAddr())
@@ -106,15 +119,15 @@ func (h *Handler) handleINET(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
 	case err != nil:
 		// TODO: log error
 		rsp := errors.ErrorAsMsg(r, err)
-		w.WriteMsg(rsp)
+		return w.WriteMsg(rsp)
 	case rsp == nil:
 		// nil answer from resolver
-		handleRcodeError(w, r, dns.RcodeServerFailure)
+		return handleRcodeError(w, r, dns.RcodeServerFailure)
 	default:
 		// success
 		rsp.SetReply(r)
 		rsp.SetRcode(r, dns.RcodeSuccess)
-		w.WriteMsg(rsp)
+		return w.WriteMsg(rsp)
 	}
 }
 
@@ -139,19 +152,19 @@ func (h *Handler) newLookupContext(remoteAddr net.Addr) (context.Context, contex
 	return ctx, func() {}
 }
 
-func (h *Handler) handleExtra(w dns.ResponseWriter, r *dns.Msg, q dns.Question) {
+func (h *Handler) handleExtra(w dns.ResponseWriter, r *dns.Msg, q dns.Question) error {
 	if h.Extra != nil {
 		fn, ok := h.Extra[q.Qclass]
 		if ok && fn != nil {
 			// call extra class handler
 			fn(w, r)
-			return
+			return nil
 		}
 	}
-	handleNotImplemented(w, r)
+	return handleNotImplemented(w, r)
 }
 
-func handleTXTResponse(w dns.ResponseWriter, r *dns.Msg, content ...string) {
+func handleTXTResponse(w dns.ResponseWriter, r *dns.Msg, content ...string) error {
 	q := r.Question[0]
 
 	hdr := dns.RR_Header{
@@ -168,17 +181,17 @@ func handleTXTResponse(w dns.ResponseWriter, r *dns.Msg, content ...string) {
 		},
 	}
 	m.SetRcode(m, dns.RcodeSuccess)
-	w.WriteMsg(m)
+	return w.WriteMsg(m)
 }
 
-func handleNotImplemented(w dns.ResponseWriter, r *dns.Msg) {
-	handleRcodeError(w, r, dns.RcodeNotImplemented)
+func handleNotImplemented(w dns.ResponseWriter, r *dns.Msg) error {
+	return handleRcodeError(w, r, dns.RcodeNotImplemented)
 }
 
-func handleRcodeError(w dns.ResponseWriter, r *dns.Msg, rcode int) {
+func handleRcodeError(w dns.ResponseWriter, r *dns.Msg, rcode int) error {
 	m := newResponse(r)
 	m.SetRcode(r, rcode)
-	w.WriteMsg(m)
+	return w.WriteMsg(m)
 }
 
 func newResponse(r *dns.Msg) *dns.Msg {
