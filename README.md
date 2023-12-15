@@ -143,7 +143,7 @@ For convenience we provide shortcuts to create forwarding `Lookuper`s to well kn
 
 ## Reflection
 
-`reflect.Lookuper` and `reflect.Client` allow us to hook a dynamically enabled logging layer with an optional tracing ID, using then [`darvaza.org/slog.Logger`][slog.Logger] interface.
+`reflect.Lookuper` and `reflect.Client` allow us to hook a dynamically enabled logging layer with an optional tracing ID, using the [`darvaza.org/slog.Logger`][slog.Logger] interface.
 
 ## See also
 
