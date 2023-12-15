@@ -1,5 +1,5 @@
-// Package common contains helpers to work with [dns.Msg]
-package common
+// Package exdns contains helpers to work with [dns.Msg]
+package exdns
 
 import "github.com/miekg/dns"
 
