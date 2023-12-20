@@ -5,6 +5,7 @@ import (
 
 	"darvaza.org/resolver/pkg/client"
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 	"github.com/miekg/dns"
 )
 
@@ -61,7 +62,7 @@ func NewSingleLookuper(server string, recursive bool) (*SingleLookuper, error) {
 func NewSingleLookuperWithClient(server string, recursive bool,
 	c client.Client) (*SingleLookuper, error) {
 	//
-	server, err := AsServerAddress(server)
+	server, err := exdns.AsServerAddress(server)
 	if err != nil {
 		return nil, err
 	}

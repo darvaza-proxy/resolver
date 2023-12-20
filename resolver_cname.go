@@ -8,6 +8,7 @@ import (
 	"github.com/miekg/dns"
 
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 // LookupCNAME returns the final canonical name after following zero or
@@ -24,7 +25,7 @@ func (r LookupResolver) LookupCNAME(ctx context.Context,
 	cname, e2 := r.doLookupCNAME(ctx, qName)
 	switch {
 	case e2 == nil:
-		return Decanonize(cname), nil
+		return exdns.Decanonize(cname), nil
 	case !e2.IsNotFound:
 		return "", e2
 	}
@@ -95,7 +96,7 @@ func (r LookupResolver) stepLookupCNAME(ctx context.Context, qName string) (stri
 		return "", e2
 	}
 
-	ForEachAnswer(msg, func(v *dns.CNAME) {
+	exdns.ForEachAnswer(msg, func(v *dns.CNAME) {
 		if len(v.Target) > 0 {
 			cname = v.Target
 		}

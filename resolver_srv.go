@@ -9,6 +9,7 @@ import (
 	"github.com/miekg/dns"
 
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 // LookupSRV returns the DNS SRV for _service._proto.domain
@@ -25,7 +26,7 @@ func (r LookupResolver) LookupSRV(ctx context.Context,
 	}
 
 	netsrvs, err := r.doLookupSRV(ctx, target)
-	return Decanonize(name), netsrvs, err
+	return exdns.Decanonize(name), netsrvs, err
 }
 
 func (r LookupResolver) sanitiseTargetSRV(service, proto, name string) (string, error) {
@@ -77,7 +78,7 @@ func (r LookupResolver) doLookupSRV(ctx context.Context,
 
 func rrToSRV(rr *dns.SRV) (*net.SRV, *net.DNSError) {
 	srv := &net.SRV{
-		Target:   Decanonize(rr.Target),
+		Target:   exdns.Decanonize(rr.Target),
 		Port:     rr.Port,
 		Priority: rr.Priority,
 		Weight:   rr.Weight,
@@ -98,7 +99,7 @@ func msgToSRV(msg *dns.Msg) ([]*net.SRV, *net.DNSError) {
 	var out []*net.SRV
 	var err *net.DNSError
 
-	ForEachAnswer(msg, func(rr *dns.SRV) {
+	exdns.ForEachAnswer(msg, func(rr *dns.SRV) {
 		srv, e := rrToSRV(rr)
 
 		switch {

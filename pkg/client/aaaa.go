@@ -6,8 +6,8 @@ import (
 
 	"github.com/miekg/dns"
 
-	"darvaza.org/resolver/pkg/common"
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 var (
@@ -32,7 +32,7 @@ func (c NoAAAA) ExchangeContext(ctx context.Context, req *dns.Msg,
 	}
 
 	req2 := req.Copy()
-	req2.Question = common.TrimQ(req2.Question, qIsAAAA)
+	req2.Question = exdns.TrimQ(req2.Question, qIsAAAA)
 	if len(req2.Question) == 0 {
 		// nothing to answer
 		resp := new(dns.Msg)
@@ -42,9 +42,9 @@ func (c NoAAAA) ExchangeContext(ctx context.Context, req *dns.Msg,
 
 	resp, _, err := c.Client.ExchangeContext(ctx, req, server)
 	if resp != nil {
-		resp.Answer = common.TrimRR(resp.Answer, rrIsAAAA)
-		resp.Ns = common.TrimRR(resp.Ns, rrIsAAAA)
-		resp.Extra = common.TrimRR(resp.Extra, rrIsAAAA)
+		resp.Answer = exdns.TrimRR(resp.Answer, rrIsAAAA)
+		resp.Ns = exdns.TrimRR(resp.Ns, rrIsAAAA)
+		resp.Extra = exdns.TrimRR(resp.Extra, rrIsAAAA)
 	}
 
 	return resp, time.Since(start), err

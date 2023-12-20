@@ -11,6 +11,7 @@ import (
 
 	"darvaza.org/resolver/pkg/client"
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 var _ Lookuper = (*RootLookuper)(nil)
@@ -195,7 +196,7 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 	server string,
 ) (string, *dns.Msg, error) {
 	//
-	server, err := AsServerAddress(server)
+	server, err := exdns.AsServerAddress(server)
 	if err != nil {
 		return "", nil, err
 	}
@@ -210,7 +211,7 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 		switch {
 		case len(resp.Answer) > 0:
 			return r.handleSuccessAnswer(ctx, req, resp, server)
-		case HasNsType(resp, dns.TypeNS):
+		case exdns.HasNsType(resp, dns.TypeNS):
 			return r.handleSuccessDelegation(ctx, req, resp, server)
 		default:
 			return "", nil, errors.ErrBadResponse()
@@ -223,7 +224,7 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 func (RootLookuper) handleSuccessAnswer(_ context.Context,
 	req *dns.Msg, resp *dns.Msg, server string,
 ) (string, *dns.Msg, error) {
-	if HasAnswerType(resp, msgQType(req)) {
+	if exdns.HasAnswerType(resp, msgQType(req)) {
 		// we got what we asked for
 		return "", resp, nil
 	}
@@ -231,7 +232,7 @@ func (RootLookuper) handleSuccessAnswer(_ context.Context,
 	// we asked for some type but we got back a CNAME so
 	// we need to query further with the same type but the
 	// new name.
-	if rr := GetFirstAnswer[*dns.CNAME](resp); rr != nil {
+	if rr := exdns.GetFirstAnswer[*dns.CNAME](resp); rr != nil {
 		req.Question[0].Name = dns.Fqdn(rr.Target)
 		return server, nil, nil
 	}
@@ -298,7 +299,7 @@ func (RootLookuper) getNS(answers []dns.RR) []string {
 
 	for _, ref := range answers {
 		if rr, ok := ref.(*dns.NS); ok {
-			out = append(out, Decanonize(rr.Ns))
+			out = append(out, exdns.Decanonize(rr.Ns))
 		}
 	}
 
