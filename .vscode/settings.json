@@ -5,6 +5,7 @@
         "Lookuper",
         "miekg",
         "pflag",
+        "Rcode",
         "Unwrapper"
     ]
 }
