@@ -3,12 +3,12 @@ module darvaza.org/resolver
 go 1.19
 
 require (
-	darvaza.org/core v0.11.0
-	darvaza.org/slog v0.5.4
+	darvaza.org/core v0.11.2
+	darvaza.org/slog v0.5.5
 	github.com/mgechev/revive v1.3.4
 	github.com/miekg/dns v1.1.57
 	golang.org/x/net v0.19.0
-	golang.org/x/sync v0.5.0
+	golang.org/x/sync v0.6.0
 )
 
 require (
@@ -25,7 +25,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
 )
