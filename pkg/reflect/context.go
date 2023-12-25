@@ -8,9 +8,13 @@ import (
 	"darvaza.org/slog"
 )
 
+// EnabledFunc represents the signature of the in-context function
+// used to determine if a request should be logged and at what level
+type EnabledFunc func(context.Context, string) (slog.LogLevel, bool)
+
 var (
 	idCtxKey  = core.NewContextKey[string]("dns.reflect.id")
-	logCtxKey = core.NewContextKey[func(string) (slog.LogLevel, bool)]("dns.reflect.enabled")
+	logCtxKey = core.NewContextKey[EnabledFunc]("dns.reflect.enabled")
 )
 
 // WithID attaches a tracing ID to the request's context.
@@ -32,7 +36,8 @@ func GetID(ctx context.Context) (string, bool) {
 
 // WithEnabledFunc attaches a function to determine of a reflection layer is enabled
 // or not.
-func WithEnabledFunc(ctx context.Context, cond func(string) (slog.LogLevel, bool)) context.Context {
+func WithEnabledFunc(ctx context.Context, cond EnabledFunc) context.Context {
+	//
 	if cond == nil {
 		panic(core.ErrInvalid)
 	}
@@ -42,7 +47,7 @@ func WithEnabledFunc(ctx context.Context, cond func(string) (slog.LogLevel, bool
 
 // WithEnabled attaches an unconditional reflection layer state regardless the name
 func WithEnabled(ctx context.Context, level slog.LogLevel, enabled bool) context.Context {
-	cond := func(string) (slog.LogLevel, bool) {
+	cond := func(context.Context, string) (slog.LogLevel, bool) {
 		return level, enabled
 	}
 
@@ -52,7 +57,7 @@ func WithEnabled(ctx context.Context, level slog.LogLevel, enabled bool) context
 // GetEnabled tests if the context enables the specified reflection layer or not.
 func GetEnabled(ctx context.Context, name string) (slog.LogLevel, bool) {
 	if cond, ok := logCtxKey.Get(ctx); ok {
-		return cond(name)
+		return cond(ctx, name)
 	}
 
 	return slog.UndefinedLevel, false
