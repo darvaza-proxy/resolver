@@ -16,6 +16,31 @@ func ForEachAnswer[T dns.RR](msg *dns.Msg, fn func(v T)) {
 	}
 }
 
+// ForEachQuestion calls a function for each question on the given request.
+func ForEachQuestion(req *dns.Msg, fn func(dns.Question)) {
+	if req == nil || fn == nil {
+		return
+	}
+
+	for _, q := range req.Question {
+		fn(q)
+	}
+}
+
+// ForEachQuestionOfClass calls a function for each question of the specified class
+// on the given request
+func ForEachQuestionOfClass(req *dns.Msg, qClass uint16, fn func(dns.Question)) {
+	if req == nil || fn == nil {
+		return
+	}
+
+	ForEachQuestion(req, func(q dns.Question) {
+		if q.Qclass == qClass {
+			fn(q)
+		}
+	})
+}
+
 // GetFirstAnswer returns the first answer for a specified type
 func GetFirstAnswer[T dns.RR](msg *dns.Msg) T {
 	var zero T
