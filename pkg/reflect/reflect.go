@@ -127,7 +127,7 @@ func (opt reflectOptions) addLayerFields(m slog.Fields) {
 	opt.setNonZeroField(m, "server", opt.Server)
 	opt.setNonZeroField(m, slog.ErrorFieldName, opt.Err)
 
-	if d := opt.RTT; d >= 0 {
+	if d := opt.RTT; d > 0 {
 		opt.setField(m, "rtt", d/time.Millisecond)
 	}
 }
