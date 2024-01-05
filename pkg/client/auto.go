@@ -9,6 +9,7 @@ import (
 	"github.com/miekg/dns"
 
 	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 var (
@@ -65,7 +66,7 @@ func (c *Auto) sfAutoExchange(ctx context.Context, req *dns.Msg,
 
 		if c.UDP != nil {
 			resp, _, err = c.UDP.ExchangeContext(ctx, req, server)
-			err = errors.ValidateResponse(server, resp, err)
+			err = exdns.ValidateResponse(server, resp, err)
 			truncated = isTruncated(err)
 		}
 
