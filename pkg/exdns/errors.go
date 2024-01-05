@@ -15,3 +15,25 @@ func ValidateResponse(server string, resp *dns.Msg, err error) error {
 	}
 	return nil
 }
+
+// ValidateRestoreReturn validates a response and makes
+// sure it carries the same ID as the original request
+func ValidateRestoreReturn(req, resp *dns.Msg,
+	server string, err error) (*dns.Msg, error) {
+	e2 := errors.ValidateResponse(server, resp, err)
+	switch {
+	case e2 != nil:
+		// failed
+		return nil, e2
+	case req == nil || req.Id == 0:
+		// original request no provided or not valid.
+		return resp, nil
+	case req.Id == resp.Id:
+		// correct ID
+		return resp, nil
+	default:
+		// restore ID
+		resp.Id = req.Id
+		return resp, nil
+	}
+}
