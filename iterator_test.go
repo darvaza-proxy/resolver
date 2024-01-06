@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 func TestRootLookup(t *testing.T) {
@@ -28,7 +30,7 @@ func testRootTypeA(t *testing.T, h Lookuper, name, address string) {
 		return
 	}
 
-	first := z.Answer[0].(*dns.A).A.String()
+	first := exdns.GetFirstAnswer[*dns.A](z).A.String()
 
 	if address != "" {
 		if first != address {

@@ -221,8 +221,8 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 	}
 }
 
-func (RootLookuper) handleSuccessAnswer(_ context.Context,
-	req *dns.Msg, resp *dns.Msg, server string,
+func (r RootLookuper) handleSuccessAnswer(ctx context.Context,
+	req, resp *dns.Msg, _ string,
 ) (string, *dns.Msg, error) {
 	if exdns.HasAnswerType(resp, msgQType(req)) {
 		// we got what we asked for
@@ -233,11 +233,46 @@ func (RootLookuper) handleSuccessAnswer(_ context.Context,
 	// we need to query further with the same type but the
 	// new name.
 	if rr := exdns.GetFirstAnswer[*dns.CNAME](resp); rr != nil {
-		req.Question[0].Name = dns.Fqdn(rr.Target)
-		return server, nil, nil
+		return r.handleCNAMEAnswer(ctx, req, resp, rr.Target)
 	}
 
 	return "", nil, errors.ErrBadResponse()
+}
+
+func (r RootLookuper) handleCNAMEAnswer(ctx context.Context,
+	req, resp *dns.Msg, cname string) (string, *dns.Msg, error) {
+	// assemble request for information about the CNAME
+	q := msgQuestion(req)
+	req2 := r.newMsgFromParts(dns.Fqdn(cname), q.Qclass, q.Qtype)
+
+	// ask
+	resp2, err := r.Exchange(ctx, req2)
+	if err != nil {
+		// failed, return what we had.
+		return "", resp, nil
+	}
+
+	// merge
+	resp3 := r.mergeCNAMEAnswer(resp, resp2)
+	return "", resp3, nil
+}
+
+func (RootLookuper) mergeCNAMEAnswer(resp1, resp2 *dns.Msg) *dns.Msg {
+	resp := resp1.Copy()
+	exdns.ForEachRR(resp2.Answer, func(rr dns.RR) {
+		resp.Answer = append(resp.Answer, rr)
+	})
+	exdns.ForEachRR(resp2.Ns, func(rr dns.RR) {
+		resp.Ns = append(resp.Ns, rr)
+	})
+	exdns.ForEachRR(resp2.Extra, func(rr dns.RR) {
+		switch rr.Header().Rrtype {
+		case dns.TypeA, dns.TypeAAAA:
+			resp.Extra = append(resp.Extra, rr)
+		}
+	})
+
+	return resp
 }
 
 func (r RootLookuper) handleSuccessDelegation(ctx context.Context,
