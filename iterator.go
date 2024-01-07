@@ -118,11 +118,15 @@ func (r RootLookuper) doExchange(ctx context.Context, m *dns.Msg,
 	}
 
 	resp, _, err := c.ExchangeContext(ctx, m, server)
-	if err := errors.ValidateResponse(server, resp, err); err != nil {
-		return nil, err
+	e2 := errors.ValidateResponse(server, resp, err)
+	switch {
+	case e2 == nil, e2.Err == errors.NODATA:
+		// no error or NODATA, we want the resp anyway
+		return resp, nil
+	default:
+		// any other error
+		return nil, e2
 	}
-
-	return resp, nil
 }
 
 // Iterate is an iterative lookup implementation
@@ -200,7 +204,6 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 	if err != nil {
 		return "", nil, err
 	}
-
 	resp, err := r.doExchange(ctx, req, server)
 	switch {
 	case err != nil:
@@ -213,12 +216,24 @@ func (r RootLookuper) doIteratePass(ctx context.Context, req *dns.Msg,
 			return r.handleSuccessAnswer(ctx, req, resp, server)
 		case exdns.HasNsType(resp, dns.TypeNS):
 			return r.handleSuccessDelegation(ctx, req, resp, server)
+		case exdns.HasNsType(resp, dns.TypeSOA):
+			return handleSuccessNoData(resp)
 		default:
 			return "", nil, errors.ErrBadResponse()
 		}
 	default:
 		return "", nil, errors.ErrBadResponse()
 	}
+}
+
+func handleSuccessNoData(resp *dns.Msg) (string,
+	*dns.Msg, error) {
+	if resp.Authoritative {
+		// We have a NODATA response with Authority section
+		// from an authoritative server, so pass it on for the Auth section
+		return "", resp, nil
+	}
+	return "", nil, errors.ErrBadResponse()
 }
 
 func (r RootLookuper) handleSuccessAnswer(ctx context.Context,
