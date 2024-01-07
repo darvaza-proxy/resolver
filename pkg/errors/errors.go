@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/miekg/dns"
+
 	"darvaza.org/core"
 )
 
@@ -61,6 +63,14 @@ func ErrBadResponse() *net.DNSError {
 func ErrNotImplemented(name string) *net.DNSError {
 	return &net.DNSError{
 		Err:  NOTIMPLEMENTED,
+		Name: name,
+	}
+}
+
+// ErrRefused reports we can't answer
+func ErrRefused(name string) *net.DNSError {
+	return &net.DNSError{
+		Err:  dns.RcodeToString[dns.RcodeRefused],
 		Name: name,
 	}
 }
