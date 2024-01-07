@@ -64,9 +64,11 @@ func GetFirstAnswer[T dns.RR](msg *dns.Msg) T {
 // HasAnswerType checks if a [dns.Msg] contains answers of the
 // specified type.
 func HasAnswerType(msg *dns.Msg, qType uint16) bool {
-	for _, rr := range msg.Answer {
-		if rr.Header().Rrtype == qType {
-			return true
+	if msg != nil {
+		for _, rr := range msg.Answer {
+			if rr.Header().Rrtype == qType {
+				return true
+			}
 		}
 	}
 	return false
@@ -75,9 +77,11 @@ func HasAnswerType(msg *dns.Msg, qType uint16) bool {
 // HasNsType checks if a [dns.Msg] contains Ns entries of the
 // specified type
 func HasNsType(msg *dns.Msg, qType uint16) bool {
-	for _, rr := range msg.Ns {
-		if rr.Header().Rrtype == qType {
-			return true
+	if msg != nil {
+		for _, rr := range msg.Ns {
+			if rr.Header().Rrtype == qType {
+				return true
+			}
 		}
 	}
 	return false
