@@ -5,7 +5,9 @@ import "github.com/miekg/dns"
 
 // ForEachAnswer calls a function for each answer of the specified type.
 func ForEachAnswer[T dns.RR](msg *dns.Msg, fn func(v T)) {
-	ForEachRR[T](msg.Answer, fn)
+	if msg != nil {
+		ForEachRR[T](msg.Answer, fn)
+	}
 }
 
 // ForEachRR calls a function for each [dns.RR] of the specified type.
