@@ -19,7 +19,7 @@ var _ Exchanger = (*RootLookuper)(nil)
 
 var roots = map[string]string{
 	"a.root-servers.net": "198.41.0.4",
-	"b.root-servers.net": "199.9.14.201",
+	"b.root-servers.net": "170.247.170.2",
 	"c.root-servers.net": "192.33.4.12",
 	"d.root-servers.net": "199.7.91.13",
 	"e.root-servers.net": "192.203.230.10",
