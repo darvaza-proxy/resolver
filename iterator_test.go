@@ -14,6 +14,7 @@ func TestRootLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	root.DisableAAAA() // for github sake
 
 	// Simple
 	testRootTypeA(t, root, "karasz.im", "95.216.149.141")
