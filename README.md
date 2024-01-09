@@ -127,6 +127,11 @@ The `RootLookuper` implements an iterative `Lookuper`/`Exchanger`, supporting an
 
 `MultiLookuper` implements a parallel `Lookuper`/`Exchanger` that will pass the request to multiple `Lookuper`/`Exchanger` instances and return the first response.
 
+### SingleFlight
+
+`SingleFlight` implements a `Lookuper`/`Exchanger` barrier to hold identical requests at
+the same time, before passing them over to another.
+
 ### reflect.Lookuper
 
 `reflect.Lookuper` implements logging middleware in front of a `Lookuper` or `Exchanger`.
