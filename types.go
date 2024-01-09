@@ -5,8 +5,10 @@ import (
 	"net"
 	"net/netip"
 
-	"darvaza.org/resolver/pkg/errors"
 	"github.com/miekg/dns"
+
+	"darvaza.org/resolver/pkg/errors"
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 // A DialerFunc is a function that establishes TCP or UDP connection
@@ -124,15 +126,6 @@ func (fn ExchangerFunc) Exchange(ctx context.Context, msg *dns.Msg) (*dns.Msg, e
 
 // Lookup implements the [Lookuper] interface using an [Exchanger] function
 func (fn ExchangerFunc) Lookup(ctx context.Context, qName string, qType uint16) (*dns.Msg, error) {
-	msg := &dns.Msg{
-		Question: []dns.Question{
-			{
-				Name:   qName,
-				Qtype:  qType,
-				Qclass: dns.ClassINET,
-			},
-		},
-	}
-
+	msg := exdns.NewRequestFromParts(dns.Fqdn(qName), dns.ClassINET, qType)
 	return fn(ctx, msg)
 }

@@ -137,7 +137,7 @@ func (r RootLookuper) Iterate(ctx context.Context, name string,
 		return nil, errors.ErrBadRequest()
 	}
 
-	req := r.newMsgFromParts(dns.Fqdn(name), dns.ClassINET, qtype)
+	req := exdns.NewRequestFromParts(dns.Fqdn(name), dns.ClassINET, qtype)
 	return r.unsafeIterateMsg(ctx, req, startAt)
 }
 
@@ -151,7 +151,7 @@ func (r RootLookuper) IterateMsg(ctx context.Context, req *dns.Msg,
 
 	if q := msgQuestion(req); q != nil {
 		// sanitize request
-		req = r.newMsgFromParts(q.Name, q.Qclass, q.Qtype)
+		req = exdns.NewRequestFromParts(q.Name, q.Qclass, q.Qtype)
 		return r.unsafeIterateMsg(ctx, req, startAt)
 	}
 
@@ -258,7 +258,7 @@ func (r RootLookuper) handleCNAMEAnswer(ctx context.Context,
 	req, resp *dns.Msg, cname string) (string, *dns.Msg, error) {
 	// assemble request for information about the CNAME
 	q := msgQuestion(req)
-	req2 := r.newMsgFromParts(dns.Fqdn(cname), q.Qclass, q.Qtype)
+	req2 := exdns.NewRequestFromParts(dns.Fqdn(cname), q.Qclass, q.Qtype)
 
 	// ask
 	resp2, err := r.Exchange(ctx, req2)
@@ -371,25 +371,6 @@ func (r RootLookuper) hostFromRoot(ctx context.Context, h string) (string, error
 		return "", fmt.Errorf("cannot select random from answer")
 	}
 	return result, nil
-}
-
-func (RootLookuper) newMsgFromParts(qName string, qClass uint16, qType uint16) *dns.Msg {
-	msg := &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Id:               dns.Id(),
-			RecursionDesired: false,
-		},
-		Question: []dns.Question{
-			{
-				Name:   qName,
-				Qclass: qClass,
-				Qtype:  qType,
-			},
-		},
-	}
-
-	msg = msg.SetEdns0(dns.DefaultMsgSize, false)
-	return msg
 }
 
 func pickRoot() string {

@@ -26,16 +26,8 @@ type SingleLookuper struct {
 func (r SingleLookuper) Lookup(ctx context.Context,
 	qName string, qType uint16) (*dns.Msg, error) {
 	//
-	m := &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Id:               dns.Id(),
-			RecursionDesired: r.recursive,
-		},
-		Question: []dns.Question{
-			{Name: qName, Qtype: qType, Qclass: dns.ClassINET},
-		},
-	}
-
+	m := exdns.NewRequestFromParts(dns.Fqdn(qName), dns.ClassINET, qType)
+	m.RecursionDesired = r.recursive
 	return r.Exchange(ctx, m)
 }
 
