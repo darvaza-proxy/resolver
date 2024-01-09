@@ -59,6 +59,16 @@ func ErrBadResponse() *net.DNSError {
 	}
 }
 
+// ErrInternalError reports there was a failure on our side.
+func ErrInternalError(name, server string) *net.DNSError {
+	return &net.DNSError{
+		Err:         dns.RcodeToString[dns.RcodeServerFailure],
+		Name:        name,
+		Server:      server,
+		IsTemporary: true,
+	}
+}
+
 // ErrNotImplemented reports something isn't implemented
 func ErrNotImplemented(name string) *net.DNSError {
 	return &net.DNSError{
