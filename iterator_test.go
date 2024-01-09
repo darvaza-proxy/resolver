@@ -30,7 +30,17 @@ func testRootTypeA(t *testing.T, h Lookuper, name, address string) {
 		return
 	}
 
-	first := exdns.GetFirstAnswer[*dns.A](z).A.String()
+	rr := exdns.GetFirstAnswer[*dns.A](z)
+	if rr == nil {
+		if address != "" {
+			t.Errorf("%s: no answer (expected %s)", name, address)
+		} else {
+			t.Errorf("%s: no answer", name)
+		}
+		return
+	}
+
+	first := rr.A.String()
 
 	if address != "" {
 		if first != address {

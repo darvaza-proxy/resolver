@@ -48,19 +48,32 @@ func ForEachQuestionOfClass(req *dns.Msg, qClass uint16, fn func(dns.Question)) 
 	})
 }
 
-// GetFirstAnswer returns the first answer for a specified type
+// GetFirstAnswer returns the first answer for a specified type.
 func GetFirstAnswer[T dns.RR](msg *dns.Msg) T {
 	var zero T
 
 	if msg != nil {
-		for _, ans := range msg.Answer {
-			if v, ok := ans.(T); ok {
-				return v
-			}
+		v, ok := GetFirstRR[T](msg.Answer)
+		if ok {
+			return v
 		}
 	}
 
 	return zero
+}
+
+// GetFirstRR returns the first RR for a specified type on the
+// given slice.
+func GetFirstRR[T dns.RR](records []dns.RR) (T, bool) {
+	var zero T
+
+	for _, rr := range records {
+		if v, ok := rr.(T); ok {
+			return v, true
+		}
+	}
+
+	return zero, false
 }
 
 // HasAnswerType checks if a [dns.Msg] contains answers of the
