@@ -102,6 +102,26 @@ func HasNsType(msg *dns.Msg, qType uint16) bool {
 	return false
 }
 
+// NewRequestFromParts creates a new [dns.Msg] from the described question.
+func NewRequestFromParts(qName string, qClass uint16, qType uint16) *dns.Msg {
+	req := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:               dns.Id(),
+			RecursionDesired: false,
+		},
+		Question: []dns.Question{
+			{
+				Name:   qName,
+				Qclass: qClass,
+				Qtype:  qType,
+			},
+		},
+	}
+
+	req = req.SetEdns0(dns.DefaultMsgSize, false)
+	return req
+}
+
 // TrimQ removes entries matching the condition from a dns.Question slice
 func TrimQ(s []dns.Question, cond func(q dns.Question) bool) []dns.Question {
 	var j int
