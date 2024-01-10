@@ -356,17 +356,12 @@ func (r *IteratorLookuper) addDelegation(ctx context.Context, resp *dns.Msg) (bo
 }
 
 // revive:disable:cognitive-complexity
-func (r *IteratorLookuper) getGlue(ctx context.Context, zone *NSCacheZone) error {
+func (r *IteratorLookuper) getGlue(ctx context.Context,
+	zone *NSCacheZone) error {
 	// revive:enable:cognitive-complexity
 	var wg sync.WaitGroup
 
-	hasGlue := false
-	zone.ForEachNS(func(qName string, addrs []netip.Addr) {
-		if len(addrs) > 0 {
-			hasGlue = true
-		}
-	})
-
+	hasGlue := zone.HasGlue()
 	if hasGlue {
 		// good enough to start
 		return nil
@@ -416,9 +411,8 @@ func (r *IteratorLookuper) getGlue(ctx context.Context, zone *NSCacheZone) error
 
 // revive:disable:cognitive-complexity
 func (r *IteratorLookuper) goGetGlue(ctx context.Context,
-	// revive:enable:cognitive-complexity
 	qName string, qType uint16, zone *NSCacheZone) bool {
-	//
+	// revive:enable:cognitive-complexity
 	var addrs []netip.Addr
 
 	resp, err := r.Lookup(ctx, qName, qType)

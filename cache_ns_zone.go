@@ -119,6 +119,10 @@ func (zone *NSCacheZone) Index() {
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
 
+	zone.unsafeIndex()
+}
+
+func (zone *NSCacheZone) unsafeIndex() {
 	if zone.ttl == 0 {
 		zone.unsafeSetTTL(MinimumNSCacheTTL, MinimumNSCacheTTL/2)
 	}
@@ -356,6 +360,18 @@ func (zone *NSCacheZone) AddGlueRR(rr dns.RR) bool {
 	}
 
 	return false
+}
+
+// HasGlue tells if this zone has any glue address.
+func (zone *NSCacheZone) HasGlue() bool {
+	zone.mu.Lock()
+	defer zone.mu.Unlock()
+
+	if zone.s == nil {
+		zone.unsafeIndex()
+	}
+
+	return len(zone.s) > 0
 }
 
 // ForEachNS calls the function for each registered NS, including any known
