@@ -579,15 +579,19 @@ func sanitizePureDelegation(resp *dns.Msg, authority string) {
 		})
 }
 
-// revive:disable:cognitive-complexity
 func assembleNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, uint32, bool) {
+	return assembleNSCacheZoneFromRR(resp.Ns, resp.Extra)
+}
+
+// revive:disable:cognitive-complexity
+func assembleNSCacheZoneFromRR(ns, extra []dns.RR) (*NSCacheZone, uint32, bool) {
 	// revive:enable:cognitive-complexity
 	var ttl uint32
 
 	zone := NewNSCacheZone("")
 
 	// collect NS entries
-	fNS := func(rr *dns.NS) {
+	exdns.ForEachRR(ns, func(rr *dns.NS) {
 		hdr := rr.Header()
 
 		if zone.name == "" {
@@ -601,21 +605,19 @@ func assembleNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, uint32, boo
 		}
 
 		zone.AddNS(rr.Ns)
-	}
+	})
 
 	// collect A/AAAA entries
-	fRR := func(rr dns.RR) {
+	exdns.ForEachRR(extra, func(rr dns.RR) {
 		if zone.AddGlueRR(rr) {
 			// accepted
 			if n := rr.Header().Ttl; n < ttl {
 				ttl = n
 			}
 		}
-	}
+	})
 
-	exdns.ForEachRR(resp.Ns, fNS)
-	exdns.ForEachRR(resp.Extra, fRR)
-	return zone, ttl, true
+	return zone, ttl, len(zone.ns) > 0
 }
 
 func assembleNSCacheZoneFromMap(qName string, m map[string]string) *NSCacheZone {

@@ -120,10 +120,10 @@ func (nsc *NSCache) Add(zone *NSCacheZone) error {
 		return core.ErrInvalid
 	}
 
-	zone.Index()
-
 	nsc.mu.Lock()
 	defer nsc.mu.Unlock()
+
+	zone.unsafeIndex()
 
 	nsc.doAdd(zone, zone.Expire())
 	return nil
