@@ -24,6 +24,17 @@ func TestRootLookup(t *testing.T) {
 	testRootTypeA(t, root, "www.seas.upenn.edu", "")
 }
 
+func TestRootLookupFrom(t *testing.T) {
+	root, err := NewRootLookuper(roots["a.root-servers.net"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	root.DisableAAAA() // for github sake
+
+	// Simple
+	testRootTypeA(t, root, "karasz.im", "95.216.149.141")
+}
+
 func testRootTypeA(t *testing.T, h Lookuper, name, address string) {
 	z, err := h.Lookup(context.TODO(), name, dns.TypeA)
 	if err != nil {
