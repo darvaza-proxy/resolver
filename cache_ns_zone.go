@@ -137,6 +137,31 @@ func (zone *NSCacheZone) unsafeIndex() {
 	zone.s = nsCacheGlueMap(zone.glue)
 }
 
+// ReplyNS produces a response message equivalent to
+// an NS request for the cache domain, including the
+// known glue and current TTL.
+func (zone *NSCacheZone) ReplyNS(req *dns.Msg) *dns.Msg {
+	ttl := zone.TTL()
+
+	zone.mu.Lock()
+	defer zone.mu.Unlock()
+
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+
+	resp.Question = []dns.Question{
+		{
+			Name:   zone.name,
+			Qclass: dns.ClassINET,
+			Qtype:  dns.TypeNS,
+		},
+	}
+
+	resp.Answer = zone.unsafeExportNS(ttl)
+	resp.Extra = zone.unsafeExportGlue(ttl)
+	return resp
+}
+
 // ExportNS produces a [dns.RR] slice containing all the NS
 // entries
 func (zone *NSCacheZone) ExportNS() []dns.RR {
@@ -145,6 +170,10 @@ func (zone *NSCacheZone) ExportNS() []dns.RR {
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
 
+	return zone.unsafeExportNS(ttl)
+}
+
+func (zone *NSCacheZone) unsafeExportNS(ttl uint32) []dns.RR {
 	out := make([]dns.RR, len(zone.ns))
 	for i, name := range zone.ns {
 		out[i] = &dns.NS{
@@ -157,19 +186,22 @@ func (zone *NSCacheZone) ExportNS() []dns.RR {
 			Ns: name,
 		}
 	}
-
 	return out
 }
 
 // ExportGlue produces a [dns.RR] slice containing all the
 // A/AAAA entries known for this zone.
 func (zone *NSCacheZone) ExportGlue() []dns.RR {
-	var out []dns.RR
-
 	ttl := zone.TTL()
 
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
+
+	return zone.unsafeExportGlue(ttl)
+}
+
+func (zone *NSCacheZone) unsafeExportGlue(ttl uint32) []dns.RR {
+	var out []dns.RR
 
 	for _, name := range zone.sortedNS {
 		for _, ip := range zone.glue[name] {
