@@ -326,6 +326,7 @@ func (zone *NSCacheZone) AddNS(name string) bool {
 
 	zone.ns = append(zone.ns, name)
 	zone.glue[name] = []netip.Addr{}
+	zone.s = nil
 	return true
 }
 
@@ -346,6 +347,7 @@ func (zone *NSCacheZone) AddGlue(name string, addrs ...netip.Addr) bool {
 		for _, addr := range addrs {
 			if !core.SliceContainsFn(s, addr, eq) {
 				zone.glue[name] = append(s, addr)
+				zone.s = nil
 				added = true
 			}
 		}
@@ -363,6 +365,7 @@ func (zone *NSCacheZone) SetGlue(name string, addrs []netip.Addr) bool {
 	if _, ok := zone.glue[name]; ok {
 		// known NS
 		zone.glue[name] = addrs
+		zone.s = nil
 		return true
 	}
 	return false
