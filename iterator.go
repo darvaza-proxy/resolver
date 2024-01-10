@@ -406,10 +406,9 @@ func (r *IteratorLookuper) getGlue(ctx context.Context,
 	return nil
 }
 
-// revive:disable:cognitive-complexity
 func (r *IteratorLookuper) goGetGlue(ctx context.Context,
 	qName string, qType uint16, zone *NSCacheZone) bool {
-	// revive:enable:cognitive-complexity
+	//
 	var addrs []netip.Addr
 
 	resp, err := r.Lookup(ctx, qName, qType)
@@ -422,18 +421,7 @@ func (r *IteratorLookuper) goGetGlue(ctx context.Context,
 	}
 
 	exdns.ForEachAnswer(resp, func(rr dns.RR) {
-		var ip netip.Addr
-		var ok bool
-
-		switch qType {
-		case dns.TypeA:
-			ip, ok = r.getIPfromRR(rr)
-		case dns.TypeAAAA:
-			if r.aaaa {
-				ip, ok = r.getIPfromRR(rr)
-			}
-		}
-
+		ip, ok := r.getIPfromRR(rr)
 		if ok && !core.SliceContainsFn(addrs, ip, eqAddr) {
 			addrs = append(addrs, ip)
 		}
@@ -445,12 +433,14 @@ func (r *IteratorLookuper) goGetGlue(ctx context.Context,
 	return false
 }
 
-func (*IteratorLookuper) getIPfromRR(rr dns.RR) (netip.Addr, bool) {
+func (r *IteratorLookuper) getIPfromRR(rr dns.RR) (netip.Addr, bool) {
 	switch v := rr.(type) {
 	case *dns.A:
 		return netip.AddrFromSlice(v.A)
 	case *dns.AAAA:
-		return netip.AddrFromSlice(v.AAAA)
+		if r.aaaa {
+			return netip.AddrFromSlice(v.AAAA)
+		}
 	}
 	return netip.Addr{}, false
 }
