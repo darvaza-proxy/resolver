@@ -2,14 +2,14 @@
 package reflect
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/miekg/dns"
 
 	"darvaza.org/core"
 	"darvaza.org/slog"
+
+	"darvaza.org/resolver/pkg/exdns"
 )
 
 type reflectOptions struct {
@@ -97,14 +97,14 @@ func (opt reflectOptions) addMsgFields(m slog.Fields, msg *dns.Msg) {
 
 func (opt reflectOptions) addMsgHdrFields(m slog.Fields, hdr *dns.MsgHdr) {
 	// TODO: in parts
-	opt.setField(m, "header", cleanString(hdr))
+	opt.setField(m, "header", exdns.CleanString(hdr))
 }
 
 func (opt reflectOptions) addQuestions(m slog.Fields, questions []dns.Question) {
 	if len(questions) > 0 {
 		var s []string
 		for _, q := range questions {
-			s = append(s, cleanString(&q))
+			s = append(s, exdns.CleanString(&q))
 		}
 
 		opt.setField(m, "question", s)
@@ -115,7 +115,7 @@ func (opt reflectOptions) addAnswers(m slog.Fields, name string, answers []dns.R
 	if len(answers) > 0 {
 		var s []string
 		for _, rr := range answers {
-			s = append(s, cleanString(rr))
+			s = append(s, exdns.CleanString(rr))
 		}
 		opt.setField(m, name, s)
 	}
@@ -130,8 +130,4 @@ func (opt reflectOptions) addLayerFields(m slog.Fields) {
 	if d := opt.RTT; d > 0 {
 		opt.setField(m, "rtt", d/time.Millisecond)
 	}
-}
-
-func cleanString(v fmt.Stringer) string {
-	return strings.Join(strings.Fields(v.String()), " ")
 }
