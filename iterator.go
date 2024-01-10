@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"sync"
 	"time"
@@ -146,13 +147,53 @@ func (r *IteratorLookuper) AddMapPersistent(qName string, ttl uint32,
 }
 
 // AddServer loads NS servers from a list.
-func (*IteratorLookuper) AddServer(string, uint32, ...string) error {
-	return core.ErrNotImplemented
+func (r *IteratorLookuper) AddServer(qName string, ttl uint32, servers ...string) error {
+	zone, err := r.newManualZone(qName, servers...)
+	if err == nil {
+		zone.SetTTL(ttl, ttl/2)
+		err = r.nsc.Add(zone)
+	}
+
+	if err != nil {
+		return core.Wrap(err, "%q: failed to create zone", qName)
+	}
+	return nil
 }
 
 // AddFrom asks the specified server for the NS servers.
 func (*IteratorLookuper) AddFrom(string, uint32, ...string) error {
 	return core.ErrNotImplemented
+}
+
+func (r *IteratorLookuper) newManualZone(qName string, servers ...string) (*NSCacheZone, error) {
+	var nameTemplate string
+
+	// servers
+	addrs, err := r.ParseAddrs(servers)
+	switch {
+	case err != nil:
+		return nil, err
+	case len(addrs) == 0:
+		return nil, errors.New("no servers specified")
+	}
+
+	// names
+	if qName == "." {
+		nameTemplate = "fake-ns%v.root-servers.net."
+	} else {
+		nameTemplate = "fake-ns%v." + qName
+	}
+
+	// assemble
+	zone := NewNSCacheZone(qName)
+	for i, ip := range addrs {
+		name := fmt.Sprintf(nameTemplate, i)
+		if !zone.AddGlueNS(name, ip) {
+			panic("unreachable")
+		}
+	}
+
+	return zone, nil
 }
 
 // DisableAAAA prevents the use of IPv6 entries on NS glue.
@@ -508,6 +549,37 @@ func (*IteratorLookuper) mapWithoutAAAA(original map[string]string) map[string]s
 		}
 	}
 	return m
+}
+
+// ParseAddrs parses a list of addresses, and returns the
+// acceptable ones and the first error.
+func (r *IteratorLookuper) ParseAddrs(servers []string) ([]netip.Addr, error) {
+	var out = make([]netip.Addr, 0, len(servers))
+	var err error
+
+	for _, s := range servers {
+		ip, ok, e := r.ParseAddr(s)
+		switch {
+		case ok:
+			out = append(out, ip)
+		case err == nil:
+			err = e
+		}
+	}
+
+	return out, err
+}
+
+// ParseAddr parses an address and returns if it's acceptable considering
+// if AAAA is enabled or not.
+func (r *IteratorLookuper) ParseAddr(server string) (netip.Addr, bool, error) {
+	ip, err := core.ParseAddr(server)
+	if ip.IsValid() {
+		if r.aaaa || ip.Is4() {
+			return ip, true, nil
+		}
+	}
+	return ip, false, err
 }
 
 // NewIteratorLookuper creates a new [IteratorLookuper].
