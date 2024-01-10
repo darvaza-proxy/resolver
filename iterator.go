@@ -161,8 +161,64 @@ func (r *IteratorLookuper) AddServer(qName string, ttl uint32, servers ...string
 }
 
 // AddFrom asks the specified server for the NS servers.
-func (*IteratorLookuper) AddFrom(string, uint32, ...string) error {
-	return core.ErrNotImplemented
+func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) error {
+	// assemble temporary NSCacheZone
+	zone, err := r.newManualZone(qName, server...)
+	if err == nil {
+		err = r.nsc.Add(zone)
+	}
+
+	if err != nil {
+		return core.Wrap(err, "%q: failed to create zone", qName)
+	}
+
+	// pull the real information
+	deadline := time.Now().Add(iteratorDeadline)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	resp, err := r.lookupAddFrom(ctx, qName)
+	if err != nil {
+		r.nsc.Evict(qName)
+		return err
+	}
+
+	// assemble final Zone
+	zone, err = NewNSCacheZoneFromNS(resp)
+	if err == nil {
+		zone.SetTTL(ttl, ttl/2)
+		err = r.getGlue(ctx, zone)
+	}
+
+	if err == nil {
+		err = r.nsc.Add(zone)
+	}
+
+	if err != nil {
+		r.nsc.Evict(qName)
+		return core.Wrap(err, "%q: failed to create zone", qName)
+	}
+
+	return nil
+}
+
+func (r *IteratorLookuper) lookupAddFrom(ctx context.Context, qName string) (*dns.Msg, error) {
+	resp, err := r.Lookup(ctx, qName, dns.TypeNS)
+	if err2 := exdns.ValidateResponse("", resp, err); err2 != nil {
+		return nil, err2
+	}
+
+	// Authoritative answers only
+	if !resp.Authoritative {
+		return nil, core.Wrap(core.ErrInvalid, "not authoritative")
+	}
+
+	// Remove AAAA if we don't support it
+	if !r.aaaa {
+		resp = r.responseWithoutAAAA(resp)
+	}
+
+	return resp, nil
 }
 
 func (r *IteratorLookuper) newManualZone(qName string, servers ...string) (*NSCacheZone, error) {
