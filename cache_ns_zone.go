@@ -468,6 +468,23 @@ func NewNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, error) {
 	return zone, nil
 }
 
+// NewNSCacheZoneFromNS creates a new [NSCacheZone] using the
+// the response to a NS query.
+func NewNSCacheZoneFromNS(resp *dns.Msg) (*NSCacheZone, error) {
+	if !exdns.HasAnswerType(resp, dns.TypeNS) {
+		// no NS data
+		return nil, errors.ErrBadResponse()
+	}
+
+	zone, ttl, ok := assembleNSCacheZoneFromNS(resp)
+	if !ok {
+		return nil, errors.ErrBadResponse()
+	}
+
+	zone.SetTTL(ttl, ttl/2)
+	return zone, nil
+}
+
 // NewNSCacheZoneFromMap creates a new [NSCacheZone] using a map for the NS server
 // addresses.
 func NewNSCacheZoneFromMap(name string, ttl uint32, m map[string]string) *NSCacheZone {
@@ -581,6 +598,10 @@ func sanitizePureDelegation(resp *dns.Msg, authority string) {
 
 func assembleNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, uint32, bool) {
 	return assembleNSCacheZoneFromRR(resp.Ns, resp.Extra)
+}
+
+func assembleNSCacheZoneFromNS(resp *dns.Msg) (*NSCacheZone, uint32, bool) {
+	return assembleNSCacheZoneFromRR(resp.Answer, resp.Extra)
 }
 
 // revive:disable:cognitive-complexity
