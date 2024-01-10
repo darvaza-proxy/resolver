@@ -113,6 +113,12 @@ type IteratorLookuper struct {
 	aaaa bool
 }
 
+// SetPersistent flags a zone for being restored automatically
+// if evicted.
+func (r *IteratorLookuper) SetPersistent(qName string) error {
+	return r.nsc.SetPersistence(qName, true)
+}
+
 // AddRootServers loads the embedded table of root servers,
 // and made persistent.
 func (r *IteratorLookuper) AddRootServers() error {
@@ -136,7 +142,7 @@ func (r *IteratorLookuper) AddMapPersistent(qName string, ttl uint32,
 		return err
 	}
 
-	return r.nsc.SetPersistence(qName, true)
+	return r.SetPersistent(qName)
 }
 
 // AddServer loads NS servers from a list.
