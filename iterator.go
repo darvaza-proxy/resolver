@@ -178,21 +178,22 @@ func (r *IteratorLookuper) Exchange(ctx context.Context, req *dns.Msg) (*dns.Msg
 		return nil, errors.ErrBadRequest()
 	}
 
-	if q := msgQuestion(req); q != nil {
-		// sanitize request
-		req2 := exdns.NewRequestFromParts(q.Name, q.Qclass, q.Qtype)
-
-		// TODO: preserve EDNS0_SUBNET
-		// TODO: any other option useful/safe on the original request to cherry-pick?
-
-		resp, err := r.doIterate(ctx, req2)
-		return exdns.RestoreReturn(req, resp, err)
+	q := msgQuestion(req)
+	if q == nil {
+		// nothing to answer
+		msg := new(dns.Msg)
+		msg.SetReply(req)
+		return msg, nil
 	}
 
-	// nothing to answer
-	msg := new(dns.Msg)
-	msg.SetReply(req)
-	return msg, nil
+	// sanitize request
+	req2 := exdns.NewRequestFromParts(q.Name, q.Qclass, q.Qtype)
+
+	// TODO: preserve EDNS0_SUBNET
+	// TODO: any other option useful/safe on the original request to cherry-pick?
+
+	resp, err := r.doIterate(ctx, req2)
+	return exdns.RestoreReturn(req, resp, err)
 }
 
 func (r *IteratorLookuper) doIterate(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
@@ -216,16 +217,22 @@ func (r *IteratorLookuper) doIteratePass(ctx context.Context, req *dns.Msg) (*dn
 	case resp == nil:
 		return nil, errors.ErrBadResponse()
 	case resp.Rcode == dns.RcodeSuccess:
-		switch {
-		case len(resp.Answer) > 0:
-			return r.handleSuccessAnswer(ctx, req, resp)
-		case exdns.HasNsType(resp, dns.TypeNS):
-			return r.handleSuccessDelegation(ctx, req, resp)
-		case exdns.HasNsType(resp, dns.TypeSOA):
-			return handleSuccessNoData(resp)
-		default:
-			return nil, errors.ErrBadResponse()
-		}
+		return r.handleSuccess(ctx, req, resp)
+	default:
+		return nil, errors.ErrBadResponse()
+	}
+}
+
+func (r *IteratorLookuper) handleSuccess(ctx context.Context,
+	req, resp *dns.Msg) (*dns.Msg, error) {
+	//
+	switch {
+	case len(resp.Answer) > 0:
+		return r.handleSuccessAnswer(ctx, req, resp)
+	case exdns.HasNsType(resp, dns.TypeNS):
+		return r.handleSuccessDelegation(ctx, req, resp)
+	case exdns.HasNsType(resp, dns.TypeSOA):
+		return handleSuccessNoData(resp)
 	default:
 		return nil, errors.ErrBadResponse()
 	}
@@ -339,7 +346,10 @@ func (r *IteratorLookuper) addDelegation(ctx context.Context, resp *dns.Msg) (bo
 		return false, err
 	}
 
-	err = r.getGlue(ctx, zone)
+	if !zone.HasGlue() {
+		err = r.getGlue(ctx, zone)
+	}
+
 	if err == nil {
 		err = r.nsc.Add(zone)
 	}
@@ -353,15 +363,18 @@ func (r *IteratorLookuper) getGlue(ctx context.Context,
 	// revive:enable:cognitive-complexity
 	var wg sync.WaitGroup
 
-	hasGlue := zone.HasGlue()
-	if hasGlue {
-		// good enough to start
-		return nil
-	}
-
 	deadline := time.Now().Add(iteratorDeadline)
 	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
+
+	spawnGoGetGlue := func(qName string, qType uint16) {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			r.goGetGlue(ctx, qName, qType, zone)
+		}()
+	}
 
 	zone.ForEachNS(func(qName string, addrs []netip.Addr) {
 		switch {
@@ -371,29 +384,15 @@ func (r *IteratorLookuper) getGlue(ctx context.Context,
 			return
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if r.goGetGlue(ctx, qName, dns.TypeA, zone) {
-				// added
-				hasGlue = true
-			}
-		}()
-
+		spawnGoGetGlue(qName, dns.TypeA)
 		if r.aaaa {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if r.goGetGlue(ctx, qName, dns.TypeAAAA, zone) {
-					// added
-					hasGlue = true
-				}
-			}()
+			spawnGoGetGlue(qName, dns.TypeAAAA)
 		}
 	})
+
 	wg.Wait()
 
-	if !hasGlue {
+	if !zone.HasGlue() {
 		// nothing
 		return errors.ErrTimeout(zone.name, nil)
 	}
