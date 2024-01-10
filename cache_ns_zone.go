@@ -86,11 +86,18 @@ func (zone *NSCacheZone) IsValid() bool {
 // SetTTL sets the expiration and half-life times in
 // seconds from Now.
 func (zone *NSCacheZone) SetTTL(ttl, half uint32) {
-	if ttl < MinimumNSCacheTTL {
+	switch {
+	case ttl == 0 && half == 0:
+		// apply defaults
+		ttl = MinimumNSCacheTTL
+		half = ttl / 2
+	case ttl < MinimumNSCacheTTL:
+		// too short, but preserve the half-life value.
 		ttl = MinimumNSCacheTTL
 	}
 
 	if half >= ttl {
+		// half-life needs to be lower than the maximum.
 		half = ttl / 2
 	}
 
