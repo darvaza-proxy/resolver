@@ -5,6 +5,9 @@ go 1.19
 require (
 	darvaza.org/core v0.11.2
 	darvaza.org/slog v0.5.5
+)
+
+require (
 	github.com/mgechev/revive v1.3.4
 	github.com/miekg/dns v1.1.57
 	golang.org/x/net v0.19.0
