@@ -506,20 +506,19 @@ func (r *IteratorLookuper) responseIsFinal(resp *dns.Msg) bool {
 }
 
 func (*IteratorLookuper) responseHasAAAA(resp *dns.Msg) bool {
-	var hasAAAA bool
-
-	exdns.ForEachRR(resp.Answer, func(rr *dns.AAAA) {
-		hasAAAA = true
-	})
-	if hasAAAA {
-		return true
+	for _, rr := range resp.Answer {
+		if rrIsAAAA(rr) {
+			return true
+		}
 	}
 
-	exdns.ForEachRR(resp.Extra, func(rr *dns.AAAA) {
-		hasAAAA = true
-	})
+	for _, rr := range resp.Extra {
+		if rrIsAAAA(rr) {
+			return true
+		}
+	}
 
-	return hasAAAA
+	return false
 }
 
 func (r *IteratorLookuper) responseWithoutAAAA(resp *dns.Msg) *dns.Msg {
@@ -531,7 +530,7 @@ func (r *IteratorLookuper) responseWithoutAAAA(resp *dns.Msg) *dns.Msg {
 	// copy and remove
 	resp2 := resp.Copy()
 	removeAAAA := func(_ []dns.RR, rr dns.RR) (dns.RR, bool) {
-		return rr, rr.Header().Rrtype != dns.TypeAAAA
+		return rr, !rrIsAAAA(rr)
 	}
 
 	resp2.Answer = core.SliceReplaceFn(resp2.Answer, removeAAAA)
