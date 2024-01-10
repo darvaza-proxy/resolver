@@ -122,15 +122,7 @@ func (r *IteratorLookuper) AddRootServers() error {
 // AddMap loads NS servers from a map
 func (r *IteratorLookuper) AddMap(qName string, ttl uint32, servers map[string]string) error {
 	if !r.aaaa {
-		// copy and remove AAAA entries
-		m := make(map[string]string)
-		for k, s := range servers {
-			ip, _ := core.ParseAddr(s)
-			if ip.IsValid() && ip.Is4() {
-				m[k] = s
-			}
-		}
-		servers = m
+		servers = r.mapWithoutAAAA(servers)
 	}
 	return r.nsc.AddMap(qName, ttl, servers)
 }
@@ -509,6 +501,18 @@ func (r *IteratorLookuper) responseWithoutAAAA(resp *dns.Msg) *dns.Msg {
 	resp2.Answer = core.SliceReplaceFn(resp2.Answer, removeAAAA)
 	resp2.Extra = core.SliceReplaceFn(resp2.Extra, removeAAAA)
 	return resp2
+}
+
+func (*IteratorLookuper) mapWithoutAAAA(original map[string]string) map[string]string {
+	// copy and remove AAAA entries
+	m := make(map[string]string)
+	for k, s := range original {
+		ip, _ := core.ParseAddr(s)
+		if ip.IsValid() && ip.Is4() {
+			m[k] = s
+		}
+	}
+	return m
 }
 
 // NewIteratorLookuper creates a new [IteratorLookuper].
