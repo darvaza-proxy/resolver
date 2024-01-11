@@ -3,10 +3,10 @@ module darvaza.org/resolver
 go 1.19
 
 require (
-	darvaza.org/cache/x/simplelru v0.1.4
-	darvaza.org/core v0.11.2
-	darvaza.org/slog v0.5.5
-	darvaza.org/slog/handlers/discard v0.4.8
+	darvaza.org/cache/x/simplelru v0.1.7
+	darvaza.org/core v0.11.3
+	darvaza.org/slog v0.5.6
+	darvaza.org/slog/handlers/discard v0.4.9
 )
 
 require (
