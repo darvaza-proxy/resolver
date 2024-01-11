@@ -86,11 +86,18 @@ func (zone *NSCacheZone) IsValid() bool {
 // SetTTL sets the expiration and half-life times in
 // seconds from Now.
 func (zone *NSCacheZone) SetTTL(ttl, half uint32) {
-	if ttl < MinimumNSCacheTTL {
+	switch {
+	case ttl == 0 && half == 0:
+		// apply defaults
+		ttl = MinimumNSCacheTTL
+		half = ttl / 2
+	case ttl < MinimumNSCacheTTL:
+		// too short, but preserve the half-life value.
 		ttl = MinimumNSCacheTTL
 	}
 
 	if half >= ttl {
+		// half-life needs to be lower than the maximum.
 		half = ttl / 2
 	}
 
@@ -112,6 +119,10 @@ func (zone *NSCacheZone) Index() {
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
 
+	zone.unsafeIndex()
+}
+
+func (zone *NSCacheZone) unsafeIndex() {
 	if zone.ttl == 0 {
 		zone.unsafeSetTTL(MinimumNSCacheTTL, MinimumNSCacheTTL/2)
 	}
@@ -126,6 +137,31 @@ func (zone *NSCacheZone) Index() {
 	zone.s = nsCacheGlueMap(zone.glue)
 }
 
+// ReplyNS produces a response message equivalent to
+// an NS request for the cache domain, including the
+// known glue and current TTL.
+func (zone *NSCacheZone) ReplyNS(req *dns.Msg) *dns.Msg {
+	ttl := zone.TTL()
+
+	zone.mu.Lock()
+	defer zone.mu.Unlock()
+
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+
+	resp.Question = []dns.Question{
+		{
+			Name:   zone.name,
+			Qclass: dns.ClassINET,
+			Qtype:  dns.TypeNS,
+		},
+	}
+
+	resp.Answer = zone.unsafeExportNS(ttl)
+	resp.Extra = zone.unsafeExportGlue(ttl)
+	return resp
+}
+
 // ExportNS produces a [dns.RR] slice containing all the NS
 // entries
 func (zone *NSCacheZone) ExportNS() []dns.RR {
@@ -134,6 +170,10 @@ func (zone *NSCacheZone) ExportNS() []dns.RR {
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
 
+	return zone.unsafeExportNS(ttl)
+}
+
+func (zone *NSCacheZone) unsafeExportNS(ttl uint32) []dns.RR {
 	out := make([]dns.RR, len(zone.ns))
 	for i, name := range zone.ns {
 		out[i] = &dns.NS{
@@ -146,19 +186,22 @@ func (zone *NSCacheZone) ExportNS() []dns.RR {
 			Ns: name,
 		}
 	}
-
 	return out
 }
 
 // ExportGlue produces a [dns.RR] slice containing all the
 // A/AAAA entries known for this zone.
 func (zone *NSCacheZone) ExportGlue() []dns.RR {
-	var out []dns.RR
-
 	ttl := zone.TTL()
 
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
+
+	return zone.unsafeExportGlue(ttl)
+}
+
+func (zone *NSCacheZone) unsafeExportGlue(ttl uint32) []dns.RR {
+	var out []dns.RR
 
 	for _, name := range zone.sortedNS {
 		for _, ip := range zone.glue[name] {
@@ -283,6 +326,7 @@ func (zone *NSCacheZone) AddNS(name string) bool {
 
 	zone.ns = append(zone.ns, name)
 	zone.glue[name] = []netip.Addr{}
+	zone.s = nil
 	return true
 }
 
@@ -303,6 +347,7 @@ func (zone *NSCacheZone) AddGlue(name string, addrs ...netip.Addr) bool {
 		for _, addr := range addrs {
 			if !core.SliceContainsFn(s, addr, eq) {
 				zone.glue[name] = append(s, addr)
+				zone.s = nil
 				added = true
 			}
 		}
@@ -320,6 +365,7 @@ func (zone *NSCacheZone) SetGlue(name string, addrs []netip.Addr) bool {
 	if _, ok := zone.glue[name]; ok {
 		// known NS
 		zone.glue[name] = addrs
+		zone.s = nil
 		return true
 	}
 	return false
@@ -349,6 +395,18 @@ func (zone *NSCacheZone) AddGlueRR(rr dns.RR) bool {
 	}
 
 	return false
+}
+
+// HasGlue tells if this zone has any glue address.
+func (zone *NSCacheZone) HasGlue() bool {
+	zone.mu.Lock()
+	defer zone.mu.Unlock()
+
+	if zone.s == nil {
+		zone.unsafeIndex()
+	}
+
+	return len(zone.s) > 0
 }
 
 // ForEachNS calls the function for each registered NS, including any known
@@ -402,6 +460,23 @@ func NewNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, error) {
 	resp2 := resp.Copy()
 	sanitizeDelegation(resp2, ".")
 	zone, ttl, ok := assembleNSCacheZoneFromDelegation(resp2)
+	if !ok {
+		return nil, errors.ErrBadResponse()
+	}
+
+	zone.SetTTL(ttl, ttl/2)
+	return zone, nil
+}
+
+// NewNSCacheZoneFromNS creates a new [NSCacheZone] using the
+// the response to a NS query.
+func NewNSCacheZoneFromNS(resp *dns.Msg) (*NSCacheZone, error) {
+	if !exdns.HasAnswerType(resp, dns.TypeNS) {
+		// no NS data
+		return nil, errors.ErrBadResponse()
+	}
+
+	zone, ttl, ok := assembleNSCacheZoneFromNS(resp)
 	if !ok {
 		return nil, errors.ErrBadResponse()
 	}
@@ -521,15 +596,23 @@ func sanitizePureDelegation(resp *dns.Msg, authority string) {
 		})
 }
 
-// revive:disable:cognitive-complexity
 func assembleNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, uint32, bool) {
+	return assembleNSCacheZoneFromRR(resp.Ns, resp.Extra)
+}
+
+func assembleNSCacheZoneFromNS(resp *dns.Msg) (*NSCacheZone, uint32, bool) {
+	return assembleNSCacheZoneFromRR(resp.Answer, resp.Extra)
+}
+
+// revive:disable:cognitive-complexity
+func assembleNSCacheZoneFromRR(ns, extra []dns.RR) (*NSCacheZone, uint32, bool) {
 	// revive:enable:cognitive-complexity
 	var ttl uint32
 
 	zone := NewNSCacheZone("")
 
 	// collect NS entries
-	fNS := func(rr *dns.NS) {
+	exdns.ForEachRR(ns, func(rr *dns.NS) {
 		hdr := rr.Header()
 
 		if zone.name == "" {
@@ -543,21 +626,19 @@ func assembleNSCacheZoneFromDelegation(resp *dns.Msg) (*NSCacheZone, uint32, boo
 		}
 
 		zone.AddNS(rr.Ns)
-	}
+	})
 
 	// collect A/AAAA entries
-	fRR := func(rr dns.RR) {
+	exdns.ForEachRR(extra, func(rr dns.RR) {
 		if zone.AddGlueRR(rr) {
 			// accepted
 			if n := rr.Header().Ttl; n < ttl {
 				ttl = n
 			}
 		}
-	}
+	})
 
-	exdns.ForEachRR(resp.Ns, fNS)
-	exdns.ForEachRR(resp.Extra, fRR)
-	return zone, ttl, true
+	return zone, ttl, len(zone.ns) > 0
 }
 
 func assembleNSCacheZoneFromMap(qName string, m map[string]string) *NSCacheZone {

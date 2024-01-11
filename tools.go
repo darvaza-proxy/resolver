@@ -71,3 +71,7 @@ func msgQType(m *dns.Msg) uint16 {
 	}
 	return 0
 }
+
+func rrIsAAAA(rr dns.RR) bool {
+	return rr.Header().Rrtype == dns.TypeAAAA
+}

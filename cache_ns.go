@@ -120,13 +120,21 @@ func (nsc *NSCache) Add(zone *NSCacheZone) error {
 		return core.ErrInvalid
 	}
 
-	zone.Index()
-
 	nsc.mu.Lock()
 	defer nsc.mu.Unlock()
 
+	zone.unsafeIndex()
+
 	nsc.doAdd(zone, zone.Expire())
 	return nil
+}
+
+// Evict removes a zone from the cache if present.
+func (nsc *NSCache) Evict(name string) {
+	nsc.mu.Lock()
+	defer nsc.mu.Unlock()
+
+	nsc.lru.Evict(name)
 }
 
 func (nsc *NSCache) doAdd(zone *NSCacheZone, expire time.Time) {

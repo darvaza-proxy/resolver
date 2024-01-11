@@ -14,6 +14,7 @@ func TestRootLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	root.DisableAAAA() // for github sake
 
 	// Simple
 	testRootTypeA(t, root, "karasz.im", "95.216.149.141")
@@ -21,6 +22,17 @@ func TestRootLookup(t *testing.T) {
 	testRootTypeA(t, root, "fda.my.salesforce.com", "")
 	// EDU
 	testRootTypeA(t, root, "www.seas.upenn.edu", "")
+}
+
+func TestRootLookupFrom(t *testing.T) {
+	root, err := NewRootLookuper(roots["a.root-servers.net"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	root.DisableAAAA() // for github sake
+
+	// Simple
+	testRootTypeA(t, root, "karasz.im", "95.216.149.141")
 }
 
 func testRootTypeA(t *testing.T, h Lookuper, name, address string) {
