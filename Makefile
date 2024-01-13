@@ -13,7 +13,11 @@ TOOLSDIR := $(CURDIR)/pkg/internal/build
 TMPDIR ?= $(CURDIR)/.tmp
 OUTDIR ?= $(TMPDIR)
 
+GOLANGCI_LINT_VERSION ?= v1.55
 REVIVE_VERSION ?= v1.3.6
+
+GOLANGCI_LINT ?= $(GOBIN)/golangci-lint
+GOLANGCI_LINT_URL ?= github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 REVIVE ?= $(GOBIN)/revive
 REVIVE_CONF ?= $(TOOLSDIR)/revive.toml
@@ -21,6 +25,7 @@ REVIVE_RUN_ARGS ?= -config $(REVIVE_CONF) -formatter friendly
 REVIVE_INSTALL_URL ?= github.com/mgechev/revive@$(REVIVE_VERSION)
 
 GO_INSTALL_URLS = \
+	$(GOLANGCI_LINT_URL) \
 	$(REVIVE_INSTALL_URL) \
 
 V = 0
