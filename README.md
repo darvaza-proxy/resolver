@@ -109,6 +109,12 @@ The `client.Auto` Client distinguishes requests by server protocol and retries t
 
 `client.SingleFlight` is a Client Middleware that implements a barrier to catch identical queries, with a small caching period. Only the `req.Id` is ignored when comparing requests, and it operates per-server.
 
+### client.WorkerPool
+
+`client.WorkerPool` is a Client Middleware that implements a barrier limiting
+the number of exchange calls that can happen in parallel. It's ideally
+use behind a _SingleFlight_ Client.
+
 ### reflect.Client
 
 `reflect.Client` implements logging middleware if front of a `client.Client`.
