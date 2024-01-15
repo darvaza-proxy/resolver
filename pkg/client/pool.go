@@ -18,7 +18,10 @@ var (
 )
 
 // interface assertions
-var _ Client = (*WorkerPool)(nil)
+var (
+	_ Unwrapper = (*WorkerPool)(nil)
+	_ Client    = (*WorkerPool)(nil)
+)
 
 // A WorkerPool limits the number of parallel requests.
 type WorkerPool struct {
@@ -31,6 +34,15 @@ type WorkerPool struct {
 	c        Client
 	onCancel func(error)
 	max      int
+}
+
+// Unwrap returns the underlying [dns.Client]
+func (wp *WorkerPool) Unwrap() *dns.Client {
+	if wp == nil || wp.c == nil {
+		return nil
+	}
+
+	return Unwrap(wp.c)
 }
 
 // prepare is called on Start()
