@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -21,6 +22,7 @@ var (
 var (
 	_ Unwrapper = (*WorkerPool)(nil)
 	_ Client    = (*WorkerPool)(nil)
+	_ Worker    = (*WorkerPool)(nil)
 )
 
 // A WorkerPool limits the number of parallel requests.
@@ -79,7 +81,7 @@ func (wp *WorkerPool) ExchangeContext(ctx context.Context,
 		return nil, 0, core.ErrInvalid
 	case wp.ch == nil:
 		// not started
-		return nil, 0, core.Wrap(core.ErrNotExists, "WorkerPool not started")
+		return nil, 0, errors.New("WorkerPool not started")
 	case len(req.Question) == 0:
 		// nothing to answer
 		resp := new(dns.Msg)
@@ -176,6 +178,11 @@ func (wp *WorkerPool) Shutdown(ctx context.Context) error {
 	}
 }
 
+// Cancel initiates a shutdown.
+func (wp *WorkerPool) Cancel(reason error) bool {
+	return wp.doCancel(reason)
+}
+
 func (wp *WorkerPool) wgWatchWorkers(err error) error {
 	if err != nil {
 		// shutdown on error
@@ -191,7 +198,7 @@ func (wp *WorkerPool) wgWatchContext(ctx context.Context) error {
 	return nil
 }
 
-func (wp *WorkerPool) doCancel(cause error) {
+func (wp *WorkerPool) doCancel(cause error) bool {
 	if cause == nil {
 		cause = context.Canceled
 	}
@@ -204,7 +211,10 @@ func (wp *WorkerPool) doCancel(cause error) {
 		if wp.onCancel != nil {
 			wp.onCancel(cause)
 		}
+
+		return true
 	}
+	return false
 }
 
 // IsCancelled tells if shutdown has been initiated

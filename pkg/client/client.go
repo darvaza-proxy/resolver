@@ -27,6 +27,23 @@ func (fn ExchangeFunc) ExchangeContext(ctx context.Context, req *dns.Msg,
 	return fn(ctx, req, server)
 }
 
+// A Worker is a [Client] that needs to be started/shutdown.
+type Worker interface {
+	Client
+
+	// Start starts the workers connected to the given
+	// context.
+	Start(context.Context) error
+	// Shutdown initiates a shut down and wait until
+	// all workers have finished or the provided context
+	// has been canceled or expired.
+	Shutdown(context.Context) error
+	// Cancel initiates a shut down with a reason, and
+	// indicates if it was the first cancellation request
+	// or not.
+	Cancel(error) bool
+}
+
 // NewDefaultClient allocate a default [dns.Client] in the same
 // manner as dns.ExchangeContext(), plain UDP.
 func NewDefaultClient(udpSize uint16) *dns.Client {
