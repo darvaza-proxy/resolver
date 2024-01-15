@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"net"
 	"sync"
 	"time"
 
@@ -120,10 +121,10 @@ func (nsc *NSCache) Add(zone *NSCacheZone) error {
 		return core.ErrInvalid
 	}
 
+	zone.Index()
+
 	nsc.mu.Lock()
 	defer nsc.mu.Unlock()
-
-	zone.unsafeIndex()
 
 	nsc.doAdd(zone, zone.Expire())
 	return nil
@@ -224,29 +225,17 @@ func (nsc *NSCache) ExchangeWithClient(ctx context.Context,
 		return nil, errors.ErrRefused(q.Name)
 	}
 
-	// each pass uses a new random server
-	for _, server := range zone.s {
-		// TODO: make fault tolerant
-		return nsc.doExchange(ctx, req, server, c, zone.name)
+	resp, err := zone.s.ExchangeWithClient(ctx, req, c)
+	switch e := err.(type) {
+	case nil:
+		return nsc.handleSuccess(resp, zone.Name())
+	case *net.DNSError:
+		if e.Err == errors.NODATA {
+			return nsc.handleNODATA(resp, e)
+		}
 	}
 
-	return nil, errors.ErrRefused(q.Name)
-}
-
-func (nsc *NSCache) doExchange(ctx context.Context,
-	req *dns.Msg, server string,
-	c client.Client, authority string) (*dns.Msg, error) {
-	//
-	resp, _, err := c.ExchangeContext(ctx, req, server)
-	err2 := errors.ValidateResponse(server, resp, err)
-	switch {
-	case err2 == nil:
-		return nsc.handleSuccess(resp, authority)
-	case err2.Err == errors.NODATA:
-		return nsc.handleNODATA(resp, err2)
-	default:
-		return nil, err2
-	}
+	return nil, err
 }
 
 func (*NSCache) handleNODATA(resp *dns.Msg, err error) (*dns.Msg, error) {

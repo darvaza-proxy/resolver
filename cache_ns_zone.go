@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"net/netip"
 	"sort"
 	"sync"
@@ -10,6 +11,7 @@ import (
 
 	"darvaza.org/core"
 
+	"darvaza.org/resolver/pkg/client"
 	"darvaza.org/resolver/pkg/errors"
 	"darvaza.org/resolver/pkg/exdns"
 )
@@ -31,8 +33,11 @@ type NSCacheZone struct {
 	ttl      uint32
 	until    time.Time
 	halfLife time.Time
+	attempts int
+	deadline time.Duration
+	interval time.Duration
 
-	s map[string]string
+	s *Pool
 }
 
 // Name returns the domain name associated to these servers.
@@ -83,6 +88,25 @@ func (zone *NSCacheZone) IsValid() bool {
 	}
 }
 
+// SetResilience specifies retry parameters to use when doing an Exchange.
+func (zone *NSCacheZone) SetResilience(attempts int, deadline, interval time.Duration) {
+	if attempts == 0 {
+		attempts = 1
+	}
+
+	zone.mu.Lock()
+	defer zone.mu.Unlock()
+
+	zone.attempts = attempts
+	zone.deadline = deadline
+	zone.interval = interval
+	if zone.s != nil {
+		zone.s.Attempts = attempts
+		zone.s.Deadline = deadline
+		zone.s.Interval = interval
+	}
+}
+
 // SetTTL sets the expiration and half-life times in
 // seconds from Now.
 func (zone *NSCacheZone) SetTTL(ttl, half uint32) {
@@ -119,7 +143,9 @@ func (zone *NSCacheZone) Index() {
 	zone.mu.Lock()
 	defer zone.mu.Unlock()
 
-	zone.unsafeIndex()
+	if zone.s == nil {
+		zone.unsafeIndex()
+	}
 }
 
 func (zone *NSCacheZone) unsafeIndex() {
@@ -134,7 +160,11 @@ func (zone *NSCacheZone) unsafeIndex() {
 	for k, addrs := range zone.glue {
 		zone.glue[k] = nsCacheSortAddr(addrs)
 	}
+
 	zone.s = nsCacheGlueMap(zone.glue)
+	zone.s.Attempts = zone.attempts
+	zone.s.Interval = zone.interval
+	zone.s.Deadline = zone.deadline
 }
 
 // ReplyNS produces a response message equivalent to
@@ -271,14 +301,8 @@ func (zone *NSCacheZone) Addrs() []string {
 // RandomAddrs produces a randomly shuffled strings array
 // containing all the A/AAAA entries known for this zone
 func (zone *NSCacheZone) RandomAddrs() []string {
-	zone.mu.Lock()
-	out := make([]string, 0, len(zone.s))
-	for _, s := range zone.s {
-		out = append(out, s)
-	}
-	zone.mu.Unlock()
-
-	return out
+	zone.Index()
+	return zone.s.Servers()
 }
 
 // Servers produces a string array containing all the
@@ -295,14 +319,7 @@ func (zone *NSCacheZone) Servers() []string {
 // Server returns one address chosen randomly or
 // and empty string if there is none.
 func (zone *NSCacheZone) Server() string {
-	zone.mu.Lock()
-	defer zone.mu.Unlock()
-
-	for _, s := range zone.s {
-		return s
-	}
-
-	return ""
+	return zone.s.Server()
 }
 
 // AddNS adds the name of a NS to the zone, and returns true
@@ -406,7 +423,7 @@ func (zone *NSCacheZone) HasGlue() bool {
 		zone.unsafeIndex()
 	}
 
-	return len(zone.s) > 0
+	return zone.s.Len() > 0
 }
 
 // ForEachNS calls the function for each registered NS, including any known
@@ -431,11 +448,22 @@ func (zone *NSCacheZone) ForEachAddr(fn func(string) bool) {
 		return
 	}
 
-	for _, addr := range zone.RandomAddrs() {
-		if fn(addr) {
-			break
-		}
-	}
+	zone.Index()
+	zone.s.ForEach(fn)
+}
+
+// Exchange performs a DNS request on a random NS server of the zone,
+// retrying on errors if [NSCacheZone.SetResilience] has been used.
+func (zone *NSCacheZone) Exchange(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
+	return zone.s.Exchange(ctx, req)
+}
+
+// ExchangeWithClient performs a DNS request on a random NS server of the zone,
+// using the given [client.Client], and retrying on errors
+// if [NSCacheZone.SetResilience] has been used.
+func (zone *NSCacheZone) ExchangeWithClient(ctx context.Context, req *dns.Msg,
+	c client.Client) (*dns.Msg, error) {
+	return zone.s.ExchangeWithClient(ctx, req, c)
 }
 
 // NewNSCacheZone creates a blank [NSCacheZone].
@@ -663,16 +691,16 @@ func nsCacheSortAddr(addrs []netip.Addr) []netip.Addr {
 	return addrs
 }
 
-func nsCacheGlueMap(glue map[string][]netip.Addr) map[string]string {
-	out := make(map[string]string)
+func nsCacheGlueMap(glue map[string][]netip.Addr) *Pool {
+	out, _ := NewPoolExchanger(nil)
 	for _, e := range glue {
 		for _, ip := range e {
-			key := ip.String()
-			addr, err := exdns.AsServerAddress(key)
+			addr, err := exdns.AsServerAddress(ip.String())
 			if err == nil {
-				out[key] = addr
+				_ = out.Add(addr)
 			}
 		}
 	}
+
 	return out
 }
