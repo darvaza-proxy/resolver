@@ -69,7 +69,8 @@ func safeNewRootLookuper(start string, c client.Client) (*RootLookuper, error) {
 	if start == "" {
 		err = l.AddRootServers()
 	} else {
-		err = l.AddFrom(".", 0, start)
+		ctx := context.Background()
+		err = l.AddFrom(ctx, ".", 0, start)
 	}
 
 	if err != nil {
@@ -161,7 +162,8 @@ func (r *IteratorLookuper) AddServer(qName string, ttl uint32, servers ...string
 }
 
 // AddFrom asks the specified server for the NS servers.
-func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) error {
+func (r *IteratorLookuper) AddFrom(ctx context.Context,
+	qName string, ttl uint32, server ...string) error {
 	// assemble temporary NSCacheZone
 	zone, err := r.newManualZone(qName, server...)
 	if err == nil {
@@ -174,7 +176,7 @@ func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) e
 
 	// pull the real information
 	deadline := time.Now().Add(iteratorDeadline)
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
 
 	resp, err := r.lookupAddFrom(ctx, qName)
