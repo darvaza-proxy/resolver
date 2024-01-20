@@ -254,6 +254,7 @@ func (p *Pool) doExchangeWait(ctx context.Context, req *dns.Msg,
 
 func (p *Pool) doExchangeInterval(ctx context.Context, req *dns.Msg,
 	c client.Client, n int, interval time.Duration) (*dns.Msg, error) {
+	//
 	var wg sync.WaitGroup
 	var err error
 
@@ -270,12 +271,6 @@ func (p *Pool) doExchangeInterval(ctx context.Context, req *dns.Msg,
 
 	for p.next(&n) {
 		select {
-		case <-ctx.Done():
-			// timed out
-			return p.returnTimeout(req, ctx.Err())
-		case <-tick.C:
-			// spawn another
-			p.spawnExchangeCh(ctx, req, &wg, c, ch)
 		case resp := <-ch:
 			// someone finished
 			switch {
@@ -286,6 +281,12 @@ func (p *Pool) doExchangeInterval(ctx context.Context, req *dns.Msg,
 				// remember first error
 				err = resp.Err()
 			}
+		case <-ctx.Done():
+			// timed out
+			return p.returnTimeout(req, ctx.Err())
+		case <-tick.C:
+			// spawn another
+			p.spawnExchangeCh(ctx, req, &wg, c, ch)
 		}
 	}
 
@@ -306,9 +307,6 @@ func (p *Pool) waitExchangeInterval(ctx context.Context, req *dns.Msg,
 	// and wait...
 	for {
 		select {
-		case <-ctx.Done():
-			// timed out
-			return p.returnTimeout(req, ctx.Err())
 		case resp := <-ch:
 			// someone finished
 			switch {
@@ -319,6 +317,9 @@ func (p *Pool) waitExchangeInterval(ctx context.Context, req *dns.Msg,
 				// remember first error
 				err = resp.Err()
 			}
+		case <-ctx.Done():
+			// timed out
+			return p.returnTimeout(req, ctx.Err())
 		case <-done:
 			// all finished, and no keepers.
 			return p.returnTimeout(req, err)
