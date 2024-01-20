@@ -3,6 +3,7 @@
 package errors
 
 import (
+	"context"
 	"net"
 	"os"
 	"strings"
@@ -117,6 +118,13 @@ func IsNotFound(err error) bool {
 
 // IsTimeout checks if the given error represents a Timeout
 func IsTimeout(err error) bool {
+	switch err {
+	case context.Canceled, context.DeadlineExceeded:
+		return true
+	case nil:
+		return false
+	}
+
 	switch e := err.(type) {
 	case *net.DNSError:
 		return e.Timeout()
@@ -129,6 +137,13 @@ func IsTimeout(err error) bool {
 
 // IsTemporary checks if the given error could be rechecked
 func IsTemporary(err error) bool {
+	switch err {
+	case context.Canceled, context.DeadlineExceeded:
+		return true
+	case nil:
+		return false
+	}
+
 	if e, ok := err.(interface {
 		Temporary() bool
 	}); ok {
