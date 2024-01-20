@@ -46,33 +46,33 @@ func (l *Lookuper) Exchange(ctx context.Context, req *dns.Msg) (*dns.Msg, error)
 }
 
 func (l *Lookuper) doExchange(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
+	var options reflectOptions
 	var id string
 
 	level, enabled := GetEnabled(ctx, l.name)
 	if enabled {
 		id, _ = GetID(ctx)
-
-		doLog(l.log, level, reflectOptions{
+		options = reflectOptions{
 			Name:    l.name,
 			ID:      id,
 			Request: req,
 			Extra:   l.Extra,
 			Rename:  l.Rename,
-		})
+		}
+
+		doLog(l.log, level, options)
 	}
 
 	start := time.Now()
 	resp, err := l.next.Exchange(ctx, req)
 	if enabled {
-		doLog(l.log, level, reflectOptions{
-			Name:     l.name,
-			ID:       id,
-			Response: resp,
-			RTT:      time.Since(start),
-			Err:      err,
-			Extra:    l.Extra,
-			Rename:   l.Rename,
-		})
+		rtt := time.Since(start)
+
+		options.Err = err
+		options.Response = resp
+		options.RTT = core.IIf(rtt > 0, rtt, -1)
+
+		doLog(l.log, level, options)
 	}
 
 	return resp, err
