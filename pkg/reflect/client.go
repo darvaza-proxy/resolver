@@ -43,34 +43,32 @@ func (c *Client) ExchangeContext(ctx context.Context, req *dns.Msg,
 func (c *Client) doExchange(ctx context.Context, req *dns.Msg,
 	server string) (*dns.Msg, time.Duration, error) {
 	//
+	var options reflectOptions
 	var id string
 
 	start := time.Now()
 	level, enabled := GetEnabled(ctx, c.name)
 	if enabled {
 		id, _ = GetID(ctx)
-
-		doLog(c.log, level, reflectOptions{
+		options = reflectOptions{
 			Name:    c.name,
 			ID:      id,
 			Request: req,
 			Server:  server,
 			Extra:   c.Extra,
 			Rename:  c.Rename,
-		})
+		}
+
+		doLog(c.log, level, options)
 	}
 
 	resp, rtt, err := c.next.ExchangeContext(ctx, req, server)
 	if enabled {
-		doLog(c.log, level, reflectOptions{
-			Name:     c.name,
-			ID:       id,
-			Response: resp,
-			RTT:      rtt,
-			Err:      err,
-			Extra:    c.Extra,
-			Rename:   c.Rename,
-		})
+		options.Err = err
+		options.Response = resp
+		options.RTT = core.IIf(rtt > 0, rtt, -1)
+
+		doLog(c.log, level, options)
 	}
 
 	return resp, time.Since(start), err

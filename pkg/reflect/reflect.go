@@ -62,12 +62,12 @@ func (opt reflectOptions) getFields() (string, slog.Fields) {
 	var msg *dns.Msg
 
 	switch {
+	case opt.Err != nil, opt.Response != nil, opt.RTT != 0:
+		msg = opt.Response
+		s = "response"
 	case opt.Request != nil:
 		msg = opt.Request
 		s = "request"
-	case opt.Response != nil:
-		msg = opt.Response
-		s = "response"
 	default:
 		s = "void"
 	}
