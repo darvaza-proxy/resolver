@@ -3,6 +3,7 @@
 package errors
 
 import (
+	"context"
 	"net"
 	"os"
 	"strings"
@@ -87,7 +88,10 @@ func ErrRefused(name string) *net.DNSError {
 
 // ErrTimeout assembles a Timeout() error
 func ErrTimeout(qName string, err error) *net.DNSError {
-	if e, ok := err.(*net.DNSError); ok {
+	var msg string
+
+	switch e := err.(type) {
+	case *net.DNSError:
 		if e.Name == "" || !e.IsTimeout {
 			// copy
 			out := *e
@@ -97,10 +101,13 @@ func ErrTimeout(qName string, err error) *net.DNSError {
 		}
 		// pass through
 		return e
+	case nil:
+		msg = "request timed out"
+	default:
+		msg = strings.TrimPrefix(err.Error(), "dns: ")
 	}
 
-	msg := core.Coalesce(err.Error(), "request timed out")
-	return ErrTimeoutMessage(qName, strings.TrimPrefix(msg, "dns: "))
+	return ErrTimeoutMessage(qName, msg)
 }
 
 // IsNotFound checks if the given error represents a NotFound
@@ -117,6 +124,13 @@ func IsNotFound(err error) bool {
 
 // IsTimeout checks if the given error represents a Timeout
 func IsTimeout(err error) bool {
+	switch err {
+	case context.Canceled, context.DeadlineExceeded:
+		return true
+	case nil:
+		return false
+	}
+
 	switch e := err.(type) {
 	case *net.DNSError:
 		return e.Timeout()
@@ -129,6 +143,13 @@ func IsTimeout(err error) bool {
 
 // IsTemporary checks if the given error could be rechecked
 func IsTemporary(err error) bool {
+	switch err {
+	case context.Canceled, context.DeadlineExceeded:
+		return true
+	case nil:
+		return false
+	}
+
 	if e, ok := err.(interface {
 		Temporary() bool
 	}); ok {

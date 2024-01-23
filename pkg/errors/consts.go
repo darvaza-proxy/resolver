@@ -1,5 +1,7 @@
 package errors
 
+import "context"
+
 const (
 	// NOANSWER is the text on [net.DNSError].Err if no [dns.Msg] was returned
 	NOANSWER = "no answer"
@@ -21,4 +23,13 @@ const (
 	// NOTIMPLEMENTED is the text on [net.DNSError].Err if the requested
 	// functionality isn't implemented by the server
 	NOTIMPLEMENTED = "feature not implemented by the server"
+)
+
+var (
+	// CANCELLED indicates the context the exchange was using was
+	// cancelled.
+	CANCELLED = context.Canceled.Error()
+	// DEADLINEEXCEEDED indicates the deadline the exchange was given
+	// has been exceeded.
+	DEADLINEEXCEEDED = context.DeadlineExceeded.Error()
 )

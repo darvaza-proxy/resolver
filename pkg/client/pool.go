@@ -116,8 +116,12 @@ func (wp *WorkerPool) doExchange(ctx context.Context,
 }
 
 func (wp *WorkerPool) submit(ctx context.Context, req *dns.Msg, server string) <-chan exResp {
-	ch := make(chan exResp)
+	ch := make(chan exResp, 1)
+	go wp.safeSubmit(ctx, req, server, ch)
+	return ch
+}
 
+func (wp *WorkerPool) safeSubmit(ctx context.Context, req *dns.Msg, server string, ch chan<- exResp) {
 	r := exReq{
 		ctx:    ctx,
 		req:    req,
@@ -125,19 +129,25 @@ func (wp *WorkerPool) submit(ctx context.Context, req *dns.Msg, server string) <
 		ch:     ch,
 	}
 
+	// channel could be closed.
+	defer func() { _ = recover() }()
+
 	wp.ch <- r
-	return ch
 }
 
 func (wp *WorkerPool) run() error {
 	for req := range wp.ch {
 		resp, _, err := wp.c.ExchangeContext(req.ctx, req.req, req.server)
-		req.ch <- exResp{
-			resp: resp,
-			err:  err,
-		}
+		wp.safeRespond(req.ch, resp, err)
 	}
 	return nil
+}
+
+func (*WorkerPool) safeRespond(out chan<- exResp, resp *dns.Msg, err error) {
+	// channel could be closed.
+	defer func() { _ = recover() }()
+
+	out <- exResp{resp, err}
 }
 
 type exReq struct {
