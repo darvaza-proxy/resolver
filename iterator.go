@@ -40,9 +40,27 @@ var roots = map[string]string{
 	"m.root-servers.net": "202.12.27.33",
 }
 
-// deadline used when the iterator needs to make extra queries
-// not governed by the initial Lookup/Exchange.
-const iteratorDeadline = 1 * time.Second
+const (
+	// DefaultIteratorAttempts indicates how many times a request
+	// will be tried by default.
+	// Setting it to negative will make the iterator retry
+	// unrestrictedly.
+	// This can be changed using [IteratorLookuper.SetResilience]
+	DefaultIteratorAttempts = 3
+
+	// DefaultIteratorDeadline indicates how long are we willing
+	// to wait at most for a request to be fulfilled.
+	// Setting it to zero or negative will disable the feature.
+	// This can be changed using [IteratorLookuper.SetResilience]
+	DefaultIteratorDeadline = 1 * time.Second
+
+	// DefaultIteratorInterval indicates how long to wait
+	// before starting a new attempt.
+	// Setting it to zero or negative will make the Iterator wait
+	// for the previous attempt to finish before starting a new one.
+	// This can be changed using [IteratorLookuper.SetResilience]
+	DefaultIteratorInterval = 10 * time.Millisecond
+)
 
 // RootLookuper does iterative lookup using the root servers.
 type RootLookuper struct {
@@ -69,7 +87,8 @@ func safeNewRootLookuper(start string, c client.Client) (*RootLookuper, error) {
 	if start == "" {
 		err = l.AddRootServers()
 	} else {
-		err = l.AddFrom(".", 0, start)
+		ctx := context.Background()
+		err = l.AddFrom(ctx, ".", 0, start)
 	}
 
 	if err != nil {
@@ -112,6 +131,10 @@ type IteratorLookuper struct {
 	c    client.Client
 	nsc  *NSCache
 	aaaa bool
+
+	attempts int
+	deadline time.Duration
+	interval time.Duration
 }
 
 // SetPersistent flags a zone for being restored automatically
@@ -131,7 +154,10 @@ func (r *IteratorLookuper) AddMap(qName string, ttl uint32, servers map[string]s
 	if !r.aaaa {
 		servers = r.mapWithoutAAAA(servers)
 	}
-	return r.nsc.AddMap(qName, ttl, servers)
+
+	zone := NewNSCacheZoneFromMap(qName, ttl, servers)
+	r.setZoneParameters(zone, 0)
+	return r.nsc.Add(zone)
 }
 
 // AddMapPersistent loads NS servers from a map but prevents it from being permanently evicted.
@@ -150,7 +176,7 @@ func (r *IteratorLookuper) AddMapPersistent(qName string, ttl uint32,
 func (r *IteratorLookuper) AddServer(qName string, ttl uint32, servers ...string) error {
 	zone, err := r.newManualZone(qName, servers...)
 	if err == nil {
-		zone.SetTTL(ttl, ttl/2)
+		r.setZoneParameters(zone, ttl)
 		err = r.nsc.Add(zone)
 	}
 
@@ -161,10 +187,12 @@ func (r *IteratorLookuper) AddServer(qName string, ttl uint32, servers ...string
 }
 
 // AddFrom asks the specified server for the NS servers.
-func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) error {
+func (r *IteratorLookuper) AddFrom(ctx context.Context,
+	qName string, ttl uint32, server ...string) error {
 	// assemble temporary NSCacheZone
 	zone, err := r.newManualZone(qName, server...)
 	if err == nil {
+		r.setZoneParameters(zone, ttl)
 		err = r.nsc.Add(zone)
 	}
 
@@ -173,9 +201,13 @@ func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) e
 	}
 
 	// pull the real information
-	deadline := time.Now().Add(iteratorDeadline)
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
-	defer cancel()
+	if r.deadline > 0 {
+		var cancel context.CancelFunc
+		deadline := time.Now().Add(r.deadline)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
 
 	resp, err := r.lookupAddFrom(ctx, qName)
 	if err != nil {
@@ -186,7 +218,7 @@ func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) e
 	// assemble final Zone
 	zone, err = NewNSCacheZoneFromNS(resp)
 	if err == nil {
-		zone.SetTTL(ttl, ttl/2)
+		r.setZoneParameters(zone, ttl)
 		err = r.getGlue(ctx, zone)
 	}
 
@@ -200,6 +232,13 @@ func (r *IteratorLookuper) AddFrom(qName string, ttl uint32, server ...string) e
 	}
 
 	return nil
+}
+
+func (r *IteratorLookuper) setZoneParameters(zone *NSCacheZone, ttl uint32) {
+	if ttl > 0 {
+		zone.SetTTL(ttl, ttl/2)
+	}
+	zone.SetResilience(r.attempts, r.deadline, r.interval)
 }
 
 func (r *IteratorLookuper) lookupAddFrom(ctx context.Context, qName string) (*dns.Msg, error) {
@@ -261,6 +300,28 @@ func (r *IteratorLookuper) DisableAAAA() {
 // when entries are added or removed.
 func (r *IteratorLookuper) SetLogger(log slog.Logger) {
 	r.nsc.SetLogger(log)
+}
+
+// SetResilience specifies retry parameters to use when doing an Exchange.
+//
+// `attempts` indicates how many times a request will be tried, and
+// setting it to negative will make the iterator retry unrestrictedly.
+//
+// `deadline` indicates how long are we willing to wait at most for a
+// request to be fulfilled.  Setting it to zero or negative will disable the
+// feature.
+//
+// `interval` indicates how long to wait before starting a new attempt.
+// Setting it to zero or negative will make the Iterator wait for the
+// previous attempt to finish before starting a new one.
+func (r *IteratorLookuper) SetResilience(attempts int, deadline, interval time.Duration) {
+	if attempts == 0 {
+		attempts = 1
+	}
+
+	r.attempts = attempts
+	r.deadline = deadline
+	r.interval = interval
 }
 
 // Lookup performs an iterative lookup
@@ -454,6 +515,7 @@ func (r *IteratorLookuper) addDelegation(ctx context.Context, resp *dns.Msg) (bo
 	}
 
 	if err == nil {
+		r.setZoneParameters(zone, 0)
 		err = r.nsc.Add(zone)
 	}
 
@@ -465,10 +527,13 @@ func (r *IteratorLookuper) getGlue(ctx context.Context,
 	zone *NSCacheZone) error {
 	// revive:enable:cognitive-complexity
 	var wg sync.WaitGroup
+	var cancel context.CancelFunc
 
-	deadline := time.Now().Add(iteratorDeadline)
-	ctx, cancel := context.WithDeadline(ctx, deadline)
-	defer cancel()
+	if r.deadline > 0 {
+		deadline := time.Now().Add(r.deadline)
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
 
 	spawnGoGetGlue := func(qName string, qType uint16) {
 		wg.Add(1)
@@ -650,6 +715,11 @@ func NewIteratorLookuper(name string, maxRR uint, c client.Client) *IteratorLook
 		c:    c,
 		nsc:  NewNSCache(name, maxRR),
 		aaaa: client.HasIPv6Support(),
+
+		attempts: DefaultIteratorAttempts,
+		deadline: DefaultIteratorDeadline,
+		interval: DefaultIteratorInterval,
 	}
+
 	return iter
 }
