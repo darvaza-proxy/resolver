@@ -5,8 +5,7 @@ set -eu
 : ${GO:=go}
 
 MODULES=$(find * -name go.mod -exec dirname '{}' \;)
-GROUPS="pkg cmd"
-BASE="$PWD"
+GROUPS=""
 
 mod() {
 	local d="${1:-.}"
