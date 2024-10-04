@@ -181,7 +181,7 @@ func (r *IteratorLookuper) AddServer(qName string, ttl uint32, servers ...string
 	}
 
 	if err != nil {
-		return core.Wrap(err, "%q: failed to create zone", qName)
+		return core.Wrapf(err, "%q: failed to create zone", qName)
 	}
 	return nil
 }
@@ -197,7 +197,7 @@ func (r *IteratorLookuper) AddFrom(ctx context.Context,
 	}
 
 	if err != nil {
-		return core.Wrap(err, "%q: failed to create zone", qName)
+		return core.Wrapf(err, "%q: failed to create zone", qName)
 	}
 
 	// pull the real information
@@ -228,7 +228,7 @@ func (r *IteratorLookuper) AddFrom(ctx context.Context,
 
 	if err != nil {
 		r.nsc.Evict(qName)
-		return core.Wrap(err, "%q: failed to create zone", qName)
+		return core.Wrapf(err, "%q: failed to create zone", qName)
 	}
 
 	return nil
