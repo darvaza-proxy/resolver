@@ -24,7 +24,7 @@ func TestLookupCNAME(t *testing.T) {
 	for _, tc := range tests {
 		s, err := l.LookupCNAME(ctx, tc.name)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 
 		if cnameInList(s, tc.cnames...) {

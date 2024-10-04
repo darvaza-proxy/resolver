@@ -34,7 +34,7 @@ func sanitiseHost(host string, p *idna.Profile) (string, error) {
 	if host != "" {
 		s, err := p.ToASCII(host)
 		if err != nil {
-			return "", core.Wrap(err, "%q: invalid host", host)
+			return "", core.Wrapf(err, "%q: invalid host", host)
 		}
 		return s, nil
 	}
