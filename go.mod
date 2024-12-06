@@ -6,7 +6,7 @@ require (
 	darvaza.org/cache/x/simplelru v0.1.10
 	darvaza.org/core v0.15.3
 	darvaza.org/slog v0.5.14
-	darvaza.org/slog/handlers/discard v0.4.14
+	darvaza.org/slog/handlers/discard v0.4.16
 )
 
 require (
