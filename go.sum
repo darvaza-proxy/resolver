@@ -1,5 +1,7 @@
 darvaza.org/cache/x/simplelru v0.1.10 h1:SRCVFeT9WH2pDiOHC4YLMtK7CLrtehCwUzBUqxZwogY=
 darvaza.org/cache/x/simplelru v0.1.10/go.mod h1:s0md8qz4JK1M23zCP/qr9Zog2tM6QmseVQCCIpza0ZY=
+darvaza.org/cache/x/simplelru v0.1.11 h1:Af+5L4HdP8JX+z520ioreHV28f+J/x5Zl6WgPJivnso=
+darvaza.org/cache/x/simplelru v0.1.11/go.mod h1:H0gp21rtl/gj4RJQqzmY6YyN46j4TUb965/VpsNKww4=
 darvaza.org/core v0.15.0 h1:9BCUOH3Evu7l4KzqSr49AgQHw9hQSckYVzTkaa3bOB0=
 darvaza.org/core v0.15.0/go.mod h1:pXwSuJ8r20wSBOS8s5QfhkI2UvRSZgriwYtSIa+fojs=
 darvaza.org/core v0.15.3 h1:gfzWN8CyRrQVikFpEj89W4WZ00OIN8VYxRWHEwG2WyQ=
