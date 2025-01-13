@@ -1,6 +1,6 @@
 module darvaza.org/resolver
 
-go 1.21
+go 1.22
 
 require (
 	darvaza.org/cache/x/simplelru v0.1.11
