@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/miekg/dns v1.1.62
+	github.com/miekg/dns v1.1.63
 	golang.org/x/net v0.34.0
 	golang.org/x/sync v0.10.0
 )
