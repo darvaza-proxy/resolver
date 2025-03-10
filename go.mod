@@ -5,8 +5,8 @@ go 1.22.0
 require (
 	darvaza.org/cache/x/simplelru v0.2.0
 	darvaza.org/core v0.16.1
-	darvaza.org/slog v0.6.0
-	darvaza.org/slog/handlers/discard v0.5.0
+	darvaza.org/slog v0.6.1
+	darvaza.org/slog/handlers/discard v0.5.1
 )
 
 require (
