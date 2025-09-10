@@ -37,7 +37,7 @@ func NewResolver(h Lookuper) *LookupResolver {
 	return &LookupResolver{h: h, strict: strict, loose: loose}
 }
 
-// LookupResolver uses a Lookuper to implement the Resolver inteface
+// LookupResolver uses a Lookuper to implement the Resolver interface
 type LookupResolver struct {
 	h      Lookuper
 	strict *idna.Profile

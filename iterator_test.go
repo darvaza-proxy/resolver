@@ -1,5 +1,7 @@
 package resolver
 
+// cspell:ignore karasz upenn
+
 import (
 	"context"
 	"testing"

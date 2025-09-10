@@ -102,8 +102,8 @@ func (r LookupResolver) stepLookupCNAME(ctx context.Context, qName string) (stri
 		}
 	})
 
-	switch {
-	case cname == "":
+	switch cname {
+	case "":
 		// No CNAME answer
 		return "", errors.ErrNotFound(qName)
 	default:

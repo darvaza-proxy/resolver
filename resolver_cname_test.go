@@ -1,5 +1,7 @@
 package resolver
 
+// cspell:ignore ianawww
+
 import (
 	"context"
 	"strings"
