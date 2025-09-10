@@ -1,4 +1,5 @@
-name: Build
+name: Race Detection
+
 on:
   push:
     branches-ignore:
@@ -6,19 +7,19 @@ on:
   pull_request:
 
 jobs:
-  make:
+  race:
     runs-on: ubuntu-latest
     # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
     if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository)
-    strategy:
-      matrix:
-        go: [ '1.23', '1.24', '1.25' ]
     steps:
     - uses: actions/checkout@v5
-    - uses: actions/setup-go@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
       with:
-        go-version: ${{ matrix.go }}
+        go-version: '1.25'
         cache: true
         cache-dependency-path: '**/go.sum'
-    - name: Build
-      run: make
+
+    - name: Run tests with race detection
+      run: make race GOTEST_FLAGS="-v"
