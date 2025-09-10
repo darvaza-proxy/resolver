@@ -8,7 +8,7 @@ GOGENERATE_FLAGS = -v
 GOUP_FLAGS ?= -v
 GOUP_PACKAGES ?= ./...
 
-TOOLSDIR := $(CURDIR)/pkg/internal/build
+TOOLSDIR := $(CURDIR)/internal/build
 TMPDIR ?= $(CURDIR)/.tmp
 OUTDIR ?= $(TMPDIR)
 
