@@ -2,11 +2,19 @@
 
 [![Go Reference][godoc-badge]][godoc]
 [![Go Report Card][goreport-badge]][goreport]
+[![codecov][codecov-badge]][codecov]
+
+`darvaza.org/resolver` provides flexible and composable DNS resolution
+functionality for Go. It implements standard Go interfaces while offering
+advanced features like iterative resolution, middleware patterns, and
+comprehensive error handling.
 
 [godoc]: https://pkg.go.dev/darvaza.org/resolver
 [godoc-badge]: https://pkg.go.dev/badge/darvaza.org/resolver.svg
 [goreport]: https://goreportcard.com/report/darvaza.org/resolver
 [goreport-badge]: https://goreportcard.com/badge/darvaza.org/resolver
+[codecov]: https://codecov.io/gh/darvaza-proxy/resolver
+[codecov-badge]: https://codecov.io/github/darvaza-proxy/resolver/graph/badge.svg
 
 [dns.Client]: https://pkg.go.dev/github.com/miekg/dns#Client
 [dns.Handler]: https://pkg.go.dev/github.com/miekg/dns#Handler
@@ -182,8 +190,22 @@ well-known recursive resolvers.
 logging layer with an optional tracing ID, using the
 [`darvaza.org/slog.Logger`][slog.Logger] interface.
 
+## Development
+
+For development guidelines, build instructions, and AI agent assistance, see
+[AGENT.md](AGENT.md).
+
+### Quick Start
+
+```bash
+make all    # Full build cycle (get deps, generate, tidy, build)
+make test   # Run tests
+make tidy   # Format and tidy (run before committing)
+```
+
 ## See also
 
-* [github.com/miekg/dns](https://github.com/miekg/dns)
-* [darvaza.org/core](https://darvaza.org/core)
-* [darvaza.org/slog](https://darvaza.org/slog)
+* [github.com/miekg/dns](https://github.com/miekg/dns) - Core DNS functionality
+* [darvaza.org/cache](https://pkg.go.dev/darvaza.org/cache) - Caching library
+* [darvaza.org/core](https://pkg.go.dev/darvaza.org/core) - Core utilities
+* [darvaza.org/slog](https://pkg.go.dev/darvaza.org/slog) - Structured logging
