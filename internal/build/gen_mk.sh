@@ -1,11 +1,12 @@
 #!/bin/sh
+# shellcheck disable=SC1007,SC3043 # empty assignments and local usage
 
 set -eu
 
 INDEX="$1"
 
 PROJECTS="$(cut -d':' -f1 "$INDEX")"
-COMMANDS="tidy get build test up"
+COMMANDS="tidy get build test coverage race up"
 
 TAB=$(printf "\t")
 
@@ -57,7 +58,7 @@ gen_revive_exclude() {
 	fi
 
 	for d in $dirs; do
-		printf -- "-exclude ./$d/... "
+		printf -- "-exclude ./%s/... " "$d"
 	done
 }
 
@@ -82,13 +83,14 @@ GO_FILES = \$(shell find * \\
 
 EOT
 
-	while IFS=: read name dir mod deps; do
+	# shellcheck disable=2094 # false positive - INDEX is only read.
+	while IFS=: read -r name dir mod deps; do
 		files=GO_FILES_$(gen_var_name "$name")
 		filter="-e '/^\.$/d;'"
-		[ "x$dir" = "x." ] || filter="$filter -e '/^$(escape_dir "$dir")$/d;'"
+		[ "$dir" = "." ] || filter="$filter -e '/^$(escape_dir "$dir")$/d;'"
 		out_pat="$(cut -d: -f2 "$INDEX" | eval "sed $filter -e 's|$|/%|'" | tr '\n' ' ' | sed -e 's| \+$||')"
 
-		if [ "x$dir" = "x." ]; then
+		if [ "$dir" = "." ]; then
 			# root
 			files_cmd="\$(GO_FILES)"
 			files_cmd="\$(filter-out $out_pat, $files_cmd)"
@@ -132,7 +134,14 @@ gen_make_targets() {
 \$(GO) mod tidy"
 		;;
 	test)
-		call="\$(GO) $cmd ./..."
+		call="\$(GO) $cmd \$(GOTEST_FLAGS) ./..."
+		;;
+	coverage)
+		call="\$(TOOLSDIR)/make_coverage.sh \"$name\" \".\" \"\$(COVERAGE_DIR)\""
+		depsx="\$(COVERAGE_DIR)"
+		;;
+	race)
+		call="env CGO_ENABLED=1 \$(GO) test -race -count=1 \$(GOTEST_FLAGS) ./..."
 		;;
 	*)
 		call="\$(GO) $cmd -v ./..."
@@ -140,7 +149,7 @@ gen_make_targets() {
 	esac
 
 	case "$cmd" in
-	build|test)
+	build|test|coverage|race)
 		sequential=true ;;
 	*)
 		sequential=false ;;
@@ -185,6 +194,7 @@ gen_make_targets() {
 	fi
 
 	files=GO_FILES_$(gen_var_name "$name")
+	# shellcheck disable=SC2086 # word splitting of deps intended
 	cat <<EOT
 
 $cmd-$name:${deps:+ $(prefixed "$cmd" $deps)}${depsx:+ | $depsx} ; \$(info \$(M) $cmd: $name)
@@ -203,7 +213,9 @@ EOT
 
 gen_files_lists
 
+# shellcheck disable=SC2086 # word splitting intentional
 for cmd in $COMMANDS; do
+	# shellcheck disable=SC2086 # word splitting intentional
 	all="$(prefixed "$cmd" $PROJECTS)"
 	depsx=
 
@@ -213,7 +225,7 @@ for cmd in $COMMANDS; do
 $cmd: $all
 EOT
 
-	while IFS=: read name dir mod deps; do
+	while IFS=: read -r name dir mod deps; do
 		deps=$(echo "$deps" | tr ',' ' ')
 
 		gen_make_targets "$cmd" "$name" "$dir" "$mod" "$deps"
@@ -226,3 +238,19 @@ for x in $PROJECTS; do
 $x: $(suffixed "$x" get build tidy)
 EOT
 done
+
+# Add coverage-related rules
+cat <<'EOT'
+
+$(COVERAGE_DIR):
+	$Q mkdir -p $@
+
+.PHONY: clean-coverage
+clean-coverage: ; $(info $(M) cleaning coverage data…)
+	$Q rm -rf $(COVERAGE_DIR)
+
+# Merge all coverage profiles into a single file
+$(COVERAGE_DIR)/coverage.out: | coverage ; $(info $(M) merging coverage profiles…)
+	$Q $(TOOLSDIR)/merge_coverage.sh $(COVERAGE_DIR)/coverage_*.prof > $@~
+	$Q mv $@~ $@
+EOT

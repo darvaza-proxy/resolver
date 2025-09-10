@@ -13,10 +13,10 @@ jobs:
     if: (github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository)
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - uses: actions/checkout@v5
+    - uses: actions/setup-node@v5
       with:
-        node-version: '18'
+        node-version: '22'
 
     - name: Run renovate-config-validator
       run: npx --yes --package renovate -- renovate-config-validator --strict

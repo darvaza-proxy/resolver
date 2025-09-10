@@ -41,6 +41,7 @@ func TestNSCacheSuffixes(t *testing.T) {
 	var nsc *NSCache
 
 	var cases = []SuffixCases{
+		// cspell:ignore miek
 		TS("www.miek.nl.", "miek.nl.", "nl.", "."),
 	}
 

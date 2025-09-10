@@ -1,5 +1,7 @@
 package resolver
 
+// cspell:ignore karasz upenn
+
 import (
 	"context"
 	"testing"
@@ -19,7 +21,7 @@ func TestRootLookup(t *testing.T) {
 	// Simple
 	testRootTypeA(t, root, "karasz.im", "95.216.149.141")
 	// Complex
-	testRootTypeA(t, root, "fda.my.salesforce.com", "")
+	testRootTypeA(t, root, "www.github.com", "")
 	// EDU
 	testRootTypeA(t, root, "www.seas.upenn.edu", "")
 }
