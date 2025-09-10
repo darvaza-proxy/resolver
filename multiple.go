@@ -98,7 +98,7 @@ func NewMultiLookuperAddresses(servers ...string) (*MultiLookuper, error) {
 	for _, server := range servers {
 		r, e := NewSingleLookuper(server, true)
 		if e != nil {
-			err.AppendError(e)
+			_ = err.AppendError(e)
 		} else {
 			m = append(m, r)
 		}
