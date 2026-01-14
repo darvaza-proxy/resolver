@@ -125,6 +125,26 @@ func (r RootLookuper) DisableAAAA() {
 	r.l.DisableAAAA()
 }
 
+// SetDivergenceTracking configures divergence tracking and storage.
+func (r RootLookuper) SetDivergenceTracking(maxEntries int, ttl, compareWindow time.Duration) {
+	r.l.SetDivergenceTracking(maxEntries, ttl, compareWindow)
+}
+
+// GetDivergence returns a previously recorded divergence entry.
+func (r RootLookuper) GetDivergence(id string) (*DivergenceRecord, bool) {
+	return r.l.GetDivergence(id)
+}
+
+// LookupWithMeta performs an iterative lookup and returns resolve metadata.
+func (r RootLookuper) LookupWithMeta(ctx context.Context, qName string, qType uint16) (*dns.Msg, *ResolveMeta, error) {
+	return r.l.LookupWithMeta(ctx, qName, qType)
+}
+
+// ExchangeWithMeta queries any root server and returns resolve metadata.
+func (r RootLookuper) ExchangeWithMeta(ctx context.Context, m *dns.Msg) (*dns.Msg, *ResolveMeta, error) {
+	return r.l.ExchangeWithMeta(ctx, m)
+}
+
 // IteratorLookuper is a generic iterative lookuper, caching zones
 // glue and NS information.
 type IteratorLookuper struct {
@@ -296,6 +316,16 @@ func (r *IteratorLookuper) DisableAAAA() {
 	r.aaaa = false
 }
 
+// SetDivergenceTracking configures divergence tracking and storage.
+func (r *IteratorLookuper) SetDivergenceTracking(maxEntries int, ttl, compareWindow time.Duration) {
+	r.nsc.SetDivergenceTracking(maxEntries, ttl, compareWindow)
+}
+
+// GetDivergence returns a previously recorded divergence entry.
+func (r *IteratorLookuper) GetDivergence(id string) (*DivergenceRecord, bool) {
+	return r.nsc.GetDivergence(id)
+}
+
 // SetLogger sets [NSCache]'s logger. [slog.Debug] is used to record
 // when entries are added or removed.
 func (r *IteratorLookuper) SetLogger(log slog.Logger) {
@@ -336,6 +366,20 @@ func (r *IteratorLookuper) Lookup(ctx context.Context,
 	return r.doIterate(ctx, req)
 }
 
+// LookupWithMeta performs an iterative lookup and returns resolve metadata.
+func (r *IteratorLookuper) LookupWithMeta(ctx context.Context,
+	name string, qType uint16) (*dns.Msg, *ResolveMeta, error) {
+	//
+	meta := new(ResolveMeta)
+	if ctx == nil {
+		return nil, meta, errors.ErrBadRequest()
+	}
+
+	req := exdns.NewRequestFromParts(dns.Fqdn(name), dns.ClassINET, qType)
+	resp, err := r.doIterateWithMeta(ctx, req, meta)
+	return resp, meta, err
+}
+
 // Exchange queries any root server and validates the response
 func (r *IteratorLookuper) Exchange(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 	if ctx == nil || req == nil {
@@ -360,9 +404,43 @@ func (r *IteratorLookuper) Exchange(ctx context.Context, req *dns.Msg) (*dns.Msg
 	return exdns.RestoreReturn(req, resp, err)
 }
 
+// ExchangeWithMeta queries any root server and returns resolve metadata.
+func (r *IteratorLookuper) ExchangeWithMeta(ctx context.Context, req *dns.Msg) (*dns.Msg, *ResolveMeta, error) {
+	meta := new(ResolveMeta)
+	if ctx == nil || req == nil {
+		return nil, meta, errors.ErrBadRequest()
+	}
+
+	q := msgQuestion(req)
+	if q == nil {
+		// nothing to answer
+		msg := new(dns.Msg)
+		msg.SetReply(req)
+		return msg, meta, nil
+	}
+
+	req2 := exdns.NewRequestFromParts(q.Name, q.Qclass, q.Qtype)
+	resp, err := r.doIterateWithMeta(ctx, req2, meta)
+	resp, err = exdns.RestoreReturn(req, resp, err)
+	return resp, meta, err
+}
+
 func (r *IteratorLookuper) doIterate(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 	for {
 		resp, err := r.doIteratePass(ctx, req)
+		switch {
+		case err != nil:
+			// failed
+			return nil, err
+		case r.responseIsFinal(resp):
+			return resp, nil
+		}
+	}
+}
+
+func (r *IteratorLookuper) doIterateWithMeta(ctx context.Context, req *dns.Msg, meta *ResolveMeta) (*dns.Msg, error) {
+	for {
+		resp, err := r.doIteratePassWithMeta(ctx, req, meta)
 		switch {
 		case err != nil:
 			// failed
@@ -387,12 +465,32 @@ func (r *IteratorLookuper) doIteratePass(ctx context.Context, req *dns.Msg) (*dn
 	}
 }
 
+func (r *IteratorLookuper) doIteratePassWithMeta(ctx context.Context, req *dns.Msg,
+	meta *ResolveMeta) (*dns.Msg, error) {
+	resp, err := r.doExchangeWithMeta(ctx, req, meta)
+	switch {
+	case err != nil:
+		return nil, err
+	case resp == nil:
+		return nil, errors.ErrBadResponse()
+	case resp.Rcode == dns.RcodeSuccess:
+		return r.handleSuccessWithMeta(ctx, req, resp, meta)
+	default:
+		return nil, errors.ErrBadResponse()
+	}
+}
+
 func (r *IteratorLookuper) handleSuccess(ctx context.Context,
 	req, resp *dns.Msg) (*dns.Msg, error) {
+	return r.handleSuccessWithMeta(ctx, req, resp, nil)
+}
+
+func (r *IteratorLookuper) handleSuccessWithMeta(ctx context.Context,
+	req, resp *dns.Msg, meta *ResolveMeta) (*dns.Msg, error) {
 	//
 	switch {
 	case len(resp.Answer) > 0:
-		return r.handleSuccessAnswer(ctx, req, resp)
+		return r.handleSuccessAnswerWithMeta(ctx, req, resp, meta)
 	case exdns.HasNsType(resp, dns.TypeNS):
 		return r.handleSuccessDelegation(ctx, req, resp)
 	case exdns.HasNsType(resp, dns.TypeSOA):
@@ -407,7 +505,16 @@ func (r *IteratorLookuper) doExchange(ctx context.Context, req *dns.Msg) (*dns.M
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
-		return r.nsc.ExchangeWithClient(ctx, req, r.c)
+		return r.nsc.ExchangeWithClient(ctx, req, r.c, nil)
+	}
+}
+
+func (r *IteratorLookuper) doExchangeWithMeta(ctx context.Context, req *dns.Msg, meta *ResolveMeta) (*dns.Msg, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		return r.nsc.ExchangeWithClient(ctx, req, r.c, meta)
 	}
 }
 
@@ -421,8 +528,8 @@ func handleSuccessNoData(resp *dns.Msg) (*dns.Msg, error) {
 	return nil, errors.ErrBadResponse()
 }
 
-func (r *IteratorLookuper) handleSuccessAnswer(ctx context.Context,
-	req, resp *dns.Msg) (*dns.Msg, error) {
+func (r *IteratorLookuper) handleSuccessAnswerWithMeta(ctx context.Context,
+	req, resp *dns.Msg, meta *ResolveMeta) (*dns.Msg, error) {
 	//
 	if exdns.HasAnswerType(resp, msgQType(req)) {
 		// we got what we asked for
@@ -433,14 +540,14 @@ func (r *IteratorLookuper) handleSuccessAnswer(ctx context.Context,
 	// we need to query further with the same type but the
 	// new name.
 	if rr := exdns.GetFirstAnswer[*dns.CNAME](resp); rr != nil {
-		return r.handleCNAMEAnswer(ctx, req, resp, rr.Target)
+		return r.handleCNAMEAnswerWithMeta(ctx, req, resp, rr.Target, meta)
 	}
 
 	return nil, errors.ErrBadResponse()
 }
 
-func (r *IteratorLookuper) handleCNAMEAnswer(ctx context.Context,
-	req, resp *dns.Msg, cname string) (*dns.Msg, error) {
+func (r *IteratorLookuper) handleCNAMEAnswerWithMeta(ctx context.Context,
+	req, resp *dns.Msg, cname string, meta *ResolveMeta) (*dns.Msg, error) {
 	// assemble request for information about the CNAME
 	q := msgQuestion(req)
 	req2 := exdns.NewRequestFromParts(dns.Fqdn(cname), q.Qclass, q.Qtype)
@@ -451,7 +558,13 @@ func (r *IteratorLookuper) handleCNAMEAnswer(ctx context.Context,
 	})
 
 	// ask
-	resp2, err := r.Exchange(ctx, req2)
+	var resp2 *dns.Msg
+	var err error
+	if meta != nil {
+		resp2, err = r.doIterateWithMeta(ctx, req2, meta)
+	} else {
+		resp2, err = r.doIterate(ctx, req2)
+	}
 	if err != nil {
 		// failed, return what we had.
 		return resp, nil

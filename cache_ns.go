@@ -38,6 +38,8 @@ type NSCache struct {
 	lru *simplelru.LRU[string, *NSCacheZone]
 
 	persistent map[string]bool
+	divStore   *DivergenceStore
+	divWindow  time.Duration
 }
 
 // SetLogger attaches a logger to the Cache. [slog.Debug] level
@@ -50,6 +52,48 @@ func (nsc *NSCache) SetLogger(log slog.Logger) {
 		log = discard.New()
 	}
 	nsc.log = log
+}
+
+// SetDivergenceTracking configures divergence tracking and storage.
+func (nsc *NSCache) SetDivergenceTracking(maxEntries int, ttl, compareWindow time.Duration) {
+	nsc.mu.Lock()
+	defer nsc.mu.Unlock()
+
+	nsc.divStore = NewDivergenceStore(maxEntries, ttl)
+	nsc.divWindow = compareWindow
+}
+
+// GetDivergence returns a previously recorded divergence entry.
+func (nsc *NSCache) GetDivergence(id string) (*DivergenceRecord, bool) {
+	nsc.mu.Lock()
+	store := nsc.divStore
+	nsc.mu.Unlock()
+
+	if store == nil {
+		return nil, false
+	}
+
+	return store.Get(id)
+}
+
+func (nsc *NSCache) divergenceObserver(qName string, qType uint16) (DivergenceObserver, time.Duration) {
+	nsc.mu.Lock()
+	store := nsc.divStore
+	window := nsc.divWindow
+	nsc.mu.Unlock()
+
+	if store == nil || window <= 0 {
+		return nil, 0
+	}
+
+	observer := func(a, b *dns.Msg, aServer, bServer string) string {
+		q := divergenceQuery{name: qName, qType: qType}
+		p := divergencePair{a: a, b: b, aServer: aServer, bServer: bServer}
+		rec := newDivergenceRecord(q, p)
+		return store.Add(rec)
+	}
+
+	return observer, window
 }
 
 func (nsc *NSCache) onLRUAdd(qName string, zone *NSCacheZone, size int, expire time.Time) {
@@ -203,13 +247,13 @@ func (*NSCache) Suffixes(qName string) []string {
 // using the default [client.Client].
 func (nsc *NSCache) Exchange(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 	c := client.NewDefaultClient(0)
-	return nsc.ExchangeWithClient(ctx, req, c)
+	return nsc.ExchangeWithClient(ctx, req, c, nil)
 }
 
 // ExchangeWithClient attempts to get an authoritative response
 // using the given [client.Client].
 func (nsc *NSCache) ExchangeWithClient(ctx context.Context,
-	req *dns.Msg, c client.Client) (*dns.Msg, error) {
+	req *dns.Msg, c client.Client, meta *ResolveMeta) (*dns.Msg, error) {
 	//
 	q := msgQuestion(req)
 	if q == nil {
@@ -225,7 +269,21 @@ func (nsc *NSCache) ExchangeWithClient(ctx context.Context,
 		return nil, errors.ErrRefused(q.Name)
 	}
 
-	resp, err := zone.s.ExchangeWithClient(ctx, req, c)
+	var (
+		resp *dns.Msg
+		err  error
+	)
+	if meta == nil {
+		resp, err = zone.s.ExchangeWithClient(ctx, req, c)
+	} else {
+		observer, window := nsc.divergenceObserver(q.Name, q.Qtype)
+		opts := &ExchangeMetaOptions{
+			Meta:          meta,
+			CompareWindow: window,
+			Observer:      observer,
+		}
+		resp, err = zone.s.ExchangeWithClientMeta(ctx, req, c, opts)
+	}
 	switch e := err.(type) {
 	case nil:
 		return nsc.handleSuccess(resp, zone.Name())
